@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { WebContainer } from "@webcontainer/api"; // This is a singleton usually? No, api exports WebContainer class.
 // Actually @webcontainer/api exports `WebContainer` which has `boot()`.
-import { transformFlatMapToWebContainer } from "../utils/webcontainerUtils";
 
 interface UseWebContainerProps {
   files: Record<string, string>;
@@ -23,7 +22,9 @@ export const useWebContainer = ({ files }: UseWebContainerProps) => {
       console.log("🚀 Booting WebContainer...");
       isBooting.current = true;
       try {
-        const webcontainer = await WebContainer.boot();
+        const webcontainer = await WebContainer.boot({
+          coep: 'require-corp'
+        });
         setInstance(webcontainer);
         
         // Listen for server-ready

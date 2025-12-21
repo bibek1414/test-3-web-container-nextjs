@@ -8,7 +8,11 @@ import {
   MonitorPlay, 
   Code2, 
   Download,
-  GitBranch
+  GitBranch,
+  ExternalLink,
+  Copy,
+  Check,
+  ShieldCheck
 } from 'lucide-react';
 
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -62,6 +66,40 @@ export default function BuilderPage() {
   const [isCloning, setIsCloning] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
   const [commitMessage, setCommitMessage] = useState("Update from Builder IDE");
+  const [copied, setCopied] = useState(false);
+  const [isProduction, setIsProduction] = useState(false);
+  const [usePublicUrl, setUsePublicUrl] = useState(false);
+  const [previewKey, setPreviewKey] = useState(0);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'webcontainer:connected') {
+        console.log("✅ WebContainer connection verified, refreshing preview...");
+        setPreviewKey(prev => prev + 1);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  const handleCopyUrl = (url: string) => {
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const getEffectiveUrl = (url: string) => {
+    if (!url) return '';
+    if (usePublicUrl) {
+      return url.replace('.local-corp.', '.');
+    }
+    return url;
+  };
+
+  const handleConnect = () => {
+    const token = Math.random().toString(36).substring(2, 10);
+    window.open(`/webcontainer/connect/${token}`, '_blank', 'width=500,height=600');
+  };
 
   // WebContainer state
   const webContainerState = useWebContainer({ files: filesMap });
@@ -306,6 +344,84 @@ export default function BuilderPage() {
             </button>
           </div>
 
+          {webContainerState.serverUrl && (
+            <div className="hidden lg:flex items-center gap-2 bg-gray-900/50 px-3 py-1.5 rounded-md border border-gray-800 max-w-[700px]">
+              <div className="flex items-center gap-3 pr-3 border-r border-gray-800 shrink-0">
+                <button 
+                  onClick={handleConnect}
+                  className="flex items-center gap-1.5 px-2 py-0.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded text-[10px] font-bold uppercase tracking-wider border border-blue-500/30 transition-all active:scale-95"
+                >
+                  <ShieldCheck size={12} />
+                  Connect
+                </button>
+
+                <div className="flex items-center gap-1 bg-gray-800 rounded p-0.5">
+                   <button 
+                     onClick={() => setIsProduction(false)}
+                     className={cn(
+                       "text-[10px] px-2 py-0.5 rounded transition-all font-bold uppercase tracking-wider",
+                       !isProduction ? "bg-blue-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-300"
+                     )}
+                   >
+                     Dev
+                   </button>
+                   <button 
+                     onClick={() => setIsProduction(true)}
+                     className={cn(
+                       "text-[10px] px-2 py-0.5 rounded transition-all font-bold uppercase tracking-wider",
+                       isProduction ? "bg-green-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-300"
+                     )}
+                   >
+                     Prod
+                   </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-500 font-bold uppercase">Public</span>
+                  <button 
+                    onClick={() => setUsePublicUrl(!usePublicUrl)}
+                    className={cn(
+                      "w-7 h-4 rounded-full transition-colors relative",
+                      usePublicUrl ? "bg-blue-600" : "bg-gray-700"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-3 h-3 bg-white rounded-full absolute top-0.5 transition-all text-black",
+                      usePublicUrl ? "right-0.5" : "left-0.5"
+                    )} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-1.5 shrink-0">
+                   <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", isProduction ? "bg-green-500" : "bg-blue-500")} />
+                   <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">{isProduction ? 'Live' : 'Preview'}</span>
+                </div>
+                <span className="text-xs text-blue-400 font-mono truncate">{getEffectiveUrl(webContainerState.serverUrl)}</span>
+              </div>
+              
+              <div className="flex items-center gap-1 shrink-0 border-l border-gray-800 pl-2 ml-1">
+                <button 
+                  onClick={() => handleCopyUrl(getEffectiveUrl(webContainerState.serverUrl))}
+                  className="p-1 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors"
+                  title="Copy preview URL"
+                >
+                  {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                </button>
+                <a 
+                  href={getEffectiveUrl(webContainerState.serverUrl)} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="p-1 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors"
+                  title="Open in new tab"
+                >
+                  <ExternalLink size={14} />
+                </a>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-3">
              <button 
                 onClick={() => setIsGithubModalOpen(true)}
@@ -347,9 +463,11 @@ export default function BuilderPage() {
                viewMode === ViewMode.SPLIT ? "w-1/2" : "w-full"
             )}>
                 <CodePreview 
+                  key={previewKey}
                   files={filesMap} 
                   activeFile={activeFile || ''} 
                   webContainerState={webContainerState}
+                  isProduction={isProduction}
                 />
             </div>
         </div>

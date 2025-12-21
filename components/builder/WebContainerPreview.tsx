@@ -16,21 +16,24 @@ interface WebContainerPreviewProps {
   files: Record<string, string>;
   webContainerInstance: WebContainer | null;
   serverUrl: string;
+  isProduction?: boolean;
 }
 
 const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
   files,
   webContainerInstance,
   serverUrl,
+  isProduction = false,
 }) => {
   const [loadingState, setLoadingState] = useState({
     mounting: false,
     installing: false,
+    building: false,
     starting: false,
     ready: false,
   });
   const [currentStep, setCurrentStep] = useState(0);
-  const totalSteps = 4;
+  const totalSteps = isProduction ? 5 : 4;
   const [setupError, setSetupError] = useState<string | null>(null);
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [terminalVisibility, setTerminalVisibility] = useState<"visible" | "minimized" | "closed">("visible");
@@ -106,43 +109,70 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
         // if we had a way to persist the node_modules. Since we don't, we just optimize the command.
         // But for this session (remounts), we already use isSetupComplete.
 
-        setLoadingState((prev) => ({
-          ...prev,
-          installing: false,
-          starting: true,
-        }));
-        setCurrentStep(3);
+        if (isProduction) {
+          setCurrentStep(3);
 
-        // Step 3: Start the server
-        if (terminalRef.current?.writeToTerminal) {
-          terminalRef.current.writeToTerminal("🚀 Starting development server...\r\n");
+          if (terminalRef.current?.writeToTerminal) {
+            terminalRef.current.writeToTerminal("🏗️ Building for production...\r\n");
+          }
+
+          const buildProcess = await webContainerInstance.spawn("npm", ["run", "build"]);
+          buildProcess.output.pipeTo(
+            new WritableStream({
+              write(data) {
+                if (terminalRef.current?.writeToTerminal) {
+                  terminalRef.current.writeToTerminal(data);
+                }
+              },
+            })
+          );
+
+          const buildExitCode = await buildProcess.exit;
+          if (buildExitCode !== 0) {
+            throw new Error(`Build failed with exit code: ${buildExitCode}`);
+          }
+
+          if (terminalRef.current?.writeToTerminal) {
+            terminalRef.current.writeToTerminal("✅ Build complete\r\n");
+          }
+
+          setCurrentStep(4);
+
+          if (terminalRef.current?.writeToTerminal) {
+            terminalRef.current.writeToTerminal("🚀 Serving production build...\r\n");
+          }
+
+          const serveProcess = await webContainerInstance.spawn("npx", ["-y", "serve", "dist"]);
+          serveProcess.output.pipeTo(
+            new WritableStream({
+              write(data) {
+                if (terminalRef.current?.writeToTerminal) {
+                  terminalRef.current.writeToTerminal(data);
+                }
+              },
+            })
+          );
+        } else {
+          setCurrentStep(3);
+
+          // Step 3: Start the server
+          if (terminalRef.current?.writeToTerminal) {
+            terminalRef.current.writeToTerminal("🚀 Starting development server...\r\n");
+          }
+          
+          const startProcess = await webContainerInstance.spawn("npm", ["run", "dev"]);
+          startProcess.output.pipeTo(
+            new WritableStream({
+              write(data) {
+                if (terminalRef.current?.writeToTerminal) {
+                  terminalRef.current.writeToTerminal(data);
+                }
+              },
+            })
+          );
         }
         
-        // Assuming 'npm run dev' or 'npm start' is the standard command
-        // We could look at package.json to decide, but 'npm run dev' is safe bet for Vite
-        const startProcess = await webContainerInstance.spawn("npm", ["run", "dev"]);
-
-        startProcess.output.pipeTo(
-          new WritableStream({
-            write(data) {
-              if (terminalRef.current?.writeToTerminal) {
-                terminalRef.current.writeToTerminal(data);
-              }
-            },
-          })
-        );
-        
-        // Use the passed serverUrl prop which is updated by the hook
-        // But we need to wait until the server is actually ready.
-        // The hook sets serverUrl when 'server-ready' emits.
-        
-        // We can just proceed to ready state, as the hook handles the URL capture
-        setLoadingState((prev) => ({
-            ...prev,
-            starting: false,
-            ready: true,
-        }));
-        setCurrentStep(4);
+        setCurrentStep(isProduction ? 5 : 4);
         setIsSetupComplete(true);
 
       } catch (err) {
@@ -157,6 +187,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
         setLoadingState({
           mounting: false,
           installing: false,
+          building: false,
           starting: false,
           ready: false,
         });
@@ -164,7 +195,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
     }
 
     setupContainer();
-  }, [webContainerInstance, isSetupComplete /* files dependency removed to avoid re-setup on keypress */]);
+  }, [webContainerInstance, isSetupComplete, isProduction]);
 
 
   // Handle file updates without full re-setup
@@ -250,16 +281,22 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
               </div>
               <div className="flex items-center gap-3">
                 {getStepIcon(3)}
-                {getStepText(3, "Starting development server")}
+                {getStepText(3, isProduction ? "Building project" : "Starting development server")}
               </div>
+              {isProduction && (
+                 <div className="flex items-center gap-3">
+                  {getStepIcon(4)}
+                  {getStepText(4, "Serving assets")}
+                </div>
+              )}
                <div className="flex items-center gap-3">
-                {getStepIcon(4)}
-                {getStepText(4, "Ready")}
+                {getStepIcon(isProduction ? 5 : 4)}
+                {getStepText(isProduction ? 5 : 4, "Ready")}
               </div>
             </div>
             
              {setupError && (
-                <div className="p-3 bg-red-100 text-red-800 rounded text-sm mt-4 break-words">
+                <div className="p-3 bg-red-100 text-red-800 rounded text-sm mt-4 wrap-break-word">
                    {setupError}
                 </div>
             )}
@@ -284,6 +321,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
               src={serverUrl}
               className="w-full h-full border-none"
               title="WebContainer Preview"
+              allow="cross-origin-isolated"
             />
           </div>
           

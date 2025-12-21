@@ -13,11 +13,13 @@ interface CodePreviewProps {
     error: string | null;
     serverUrl: string;
   };
+  isProduction?: boolean;
 }
 
 export const CodePreview: React.FC<CodePreviewProps> = ({ 
   files, 
-  webContainerState
+  webContainerState,
+  isProduction = false
 }) => {
   const { instance, isLoading, error, serverUrl } = webContainerState;
 
@@ -49,6 +51,7 @@ export const CodePreview: React.FC<CodePreviewProps> = ({
           files={files} 
           webContainerInstance={instance}
           serverUrl={serverUrl}
+          isProduction={isProduction}
        />
     </div>
   );
