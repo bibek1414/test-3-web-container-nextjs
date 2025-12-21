@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react"
-import Editor, { loader, useMonaco } from "@monaco-editor/react"
+import { useEffect } from "react"
+import Editor, { useMonaco } from "@monaco-editor/react"
 import { cn } from "@/lib/utils"
 import { getEditorLanguage, configureMonaco, defaultEditorOptions } from "@/lib/monaco-utils"
 

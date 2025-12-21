@@ -310,13 +310,13 @@ export const defaultEditorOptions = {
   // Selection
   multiCursorModifier: "ctrlCmd" as const,
   selectionHighlight: true,
-  occurrencesHighlight: true,
+  occurrencesHighlight: "singleFile" as const,
   
   // Suggestions
   suggestOnTriggerCharacters: true,
   acceptSuggestionOnEnter: "on" as const,
   tabCompletion: "on" as const,
-  wordBasedSuggestions: true,
+  wordBasedSuggestions: "currentDocument" as const,
   quickSuggestions: {
     other: true,
     comments: false,
@@ -334,7 +334,7 @@ export const defaultEditorOptions = {
   },
   
   // Guides
-  renderIndentGuides: true,
+  renderIndentGuides: true as const,
   highlightActiveIndentGuide: true,
   rulers: [80, 120],
   
@@ -347,7 +347,7 @@ export const defaultEditorOptions = {
   
   // Cursor
   cursorBlinking: "smooth" as const,
-  cursorSmoothCaretAnimation: true,
+  cursorSmoothCaretAnimation: "on" as const,
   cursorStyle: "line" as const,
   cursorWidth: 2,
   
@@ -366,7 +366,7 @@ export const defaultEditorOptions = {
   },
   
   // Semantic highlighting
-  "semanticHighlighting.enabled": true,
+  "semanticHighlighting.enabled": true as const,
   
   // Sticky scroll
   stickyScroll: {
