@@ -221,6 +221,16 @@ export const useWebSocket = (workspaceId: string) => {
     return send({ action: "delete_file", path });
   }, [send]);
 
+  const createDirectory = useCallback((path: string) => {
+    console.log(`📁 Creating directory: ${path}`);
+    return send({ action: "create_directory", path });
+  }, [send]);
+
+  const renameFile = useCallback((oldPath: string, newPath: string) => {
+    console.log(`📝 Renaming: ${oldPath} -> ${newPath}`);
+    return send({ action: "rename_file", old_path: oldPath, new_path: newPath });
+  }, [send]);
+
   const recloneProject = useCallback(() => {
     console.log(`♻️ Re-cloning project request`);
     return send({ action: "reclone_project" });
@@ -264,6 +274,8 @@ export const useWebSocket = (workspaceId: string) => {
     updateFile,
     createFile,
     deleteFile,
+    createDirectory,
+    renameFile,
     recloneProject,
     cloneRepo,
     pushChanges,

@@ -37,6 +37,10 @@ export default function BuilderPage() {
     updateFile,
     activeFile,
     refreshFileTree,
+    createFile,
+    createDirectory,
+    deleteFile,
+    renameFile,
     recloneProject,
     cloneRepo,
     pushChanges
@@ -238,13 +242,15 @@ export default function BuilderPage() {
       {/* Internal Sidebar - File Explorer */}
       {showExplorer && (
         <FileExplorer 
-          files={extractPaths(fileTree)} 
-           activeFile={activeFile || ''}
-           onSelectFile={(path) => {
-             openFile(path);
-           }}
-           onCreateFile={(path) => updateFile(path, '// New file')}
-           onDeleteFile={(path) => console.log("Delete not implemented", path)}
+          fileTree={fileTree} 
+          activeFile={activeFile || ''}
+          onSelectFile={(path) => {
+            openFile(path);
+          }}
+          onCreateFile={createFile}
+          onCreateDirectory={createDirectory}
+          onDeleteFile={deleteFile}
+          onRename={renameFile}
         />
       )}
 
