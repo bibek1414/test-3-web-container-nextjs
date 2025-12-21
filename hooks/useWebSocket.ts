@@ -10,6 +10,9 @@ interface WebSocketMessage {
   message?: string;
   repo_url?: string;
   token?: string;
+  tree?: { items: FileNode[] };
+  old_path?: string;
+  new_path?: string;
 }
 
 export const useWebSocket = (workspaceId: string) => {
@@ -66,7 +69,6 @@ export const useWebSocket = (workspaceId: string) => {
       wsUrl = `${wsProtocol}//${url.host}/ws/workspace/${workspaceId}/`;
     } catch(e) {
       console.error("Invalid API URL:", apiUrl);
-      // Fallback or error handling
     }
 
     console.log(`🚀 Connecting to WebSocket: ${wsUrl}`);
@@ -79,7 +81,7 @@ export const useWebSocket = (workspaceId: string) => {
       console.log("✅ WebSocket Connection Established");
       setStatus("Connected");
       setStatusColor("#4CAF50");
-      reconnectAttempts.current = 0; // Reset reconnect counter on success
+      reconnectAttempts.current = 0;
     };
 
     ws.onerror = (error) => {
@@ -93,7 +95,6 @@ export const useWebSocket = (workspaceId: string) => {
       setStatus("Disconnected");
       setStatusColor("#888");
       
-      // Attempt reconnection with exponential backoff
       if (reconnectAttempts.current < maxReconnectAttempts) {
         const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
         console.log(`🔄 Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current + 1}/${maxReconnectAttempts})`);
@@ -118,8 +119,6 @@ export const useWebSocket = (workspaceId: string) => {
           case "tree":
             console.log(`🌳 File tree received with ${msg.items?.length || 0} root items`);
             if (msg.items) {
-              // Log the tree structure for debugging
-              console.log('🌳 Tree structure:', JSON.stringify(msg.items, null, 2));
               setFileTree(msg.items);
             }
             break;
@@ -130,12 +129,65 @@ export const useWebSocket = (workspaceId: string) => {
               setCurrentFileContent(msg.content);
               setLastReceivedFile({ path: msg.path, content: msg.content });
               setActiveFile(msg.path);
-              console.log(`✅ Updated file state for: ${msg.path}`);
             }
             break;
 
           case "file_updated":
             console.log(`✅ File successfully updated: ${msg.path}`);
+            // If content is provided, update it (from broadcast)
+            if (msg.content !== undefined && msg.path) {
+              setLastReceivedFile({ path: msg.path, content: msg.content });
+              // If this is the active file, update the editor content
+              if (msg.path === activeFile) {
+                setCurrentFileContent(msg.content);
+              }
+            }
+            break;
+
+          case "file_created":
+            console.log(`✅ File created: ${msg.path}`);
+            // Update tree if provided
+            if (msg.tree?.items) {
+              setFileTree(msg.tree.items);
+            }
+            break;
+
+          case "file_deleted":
+            console.log(`🗑️ File deleted: ${msg.path}`);
+            // Update tree if provided
+            if (msg.tree?.items) {
+              setFileTree(msg.tree.items);
+            }
+            // Clear active file if it was deleted
+            if (msg.path === activeFile) {
+              setActiveFile(null);
+              setCurrentFileContent("");
+            }
+            break;
+
+          case "file_renamed":
+            console.log(`📝 File renamed: ${msg.old_path} -> ${msg.new_path}`);
+            // Update tree if provided
+            if (msg.tree?.items) {
+              setFileTree(msg.tree.items);
+            }
+            // Update active file if it was renamed
+            if (msg.old_path === activeFile) {
+              setActiveFile(msg.new_path || null);
+            }
+            break;
+
+          case "folder_created":
+            console.log(`📁 Folder created: ${msg.path}`);
+            // Update tree if provided
+            if (msg.tree?.items) {
+              setFileTree(msg.tree.items);
+            }
+            break;
+
+          case "notification":
+            console.log(`📢 Notification: ${msg.message}`);
+            // You can add a toast notification here if you have a notification system
             break;
 
           case "component_selected":
@@ -172,7 +224,7 @@ export const useWebSocket = (workspaceId: string) => {
       }
       ws.close();
     };
-  }, [workspaceId, logSocketMessage]);
+  }, [workspaceId, logSocketMessage, activeFile]);
 
   // Update the ref whenever connect changes
   useEffect(() => {
@@ -229,7 +281,7 @@ export const useWebSocket = (workspaceId: string) => {
 
   const createDirectory = useCallback((path: string) => {
     console.log(`📁 Creating directory: ${path}`);
-    return send({ action: "create_directory", path });
+    return send({ action: "create_folder", path });
   }, [send]);
 
   const renameFile = useCallback((oldPath: string, newPath: string) => {
@@ -254,7 +306,7 @@ export const useWebSocket = (workspaceId: string) => {
 
   const refreshFileTree = useCallback(() => {
      console.log("🌲 Requesting file tree refresh");
-     return send({ action: "get_files" });
+     return send({ action: "get_tree" });
   }, [send]);
 
   // Manual reconnect function
