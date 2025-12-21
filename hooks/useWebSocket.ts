@@ -24,7 +24,8 @@ export const useWebSocket = (workspaceId: string) => {
   const messageCount = useRef(0);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
-  const reconnectTimeout = useRef<NodeJS.Timeout>();
+  const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
+  const connectRef = useRef<() => void>(() => {});
 
   // Custom console logging with styling
   const logSocketMessage = useCallback(
@@ -99,7 +100,7 @@ export const useWebSocket = (workspaceId: string) => {
         
         reconnectTimeout.current = setTimeout(() => {
           reconnectAttempts.current++;
-          connect();
+          connectRef.current();
         }, delay);
       } else {
         console.error("❌ Max reconnection attempts reached");
@@ -172,6 +173,11 @@ export const useWebSocket = (workspaceId: string) => {
       ws.close();
     };
   }, [workspaceId, logSocketMessage]);
+
+  // Update the ref whenever connect changes
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   // Initial connection
   useEffect(() => {
