@@ -49,7 +49,8 @@ export default function BuilderPage() {
     pushChanges,
     installDependencies,
     isFileLoading,
-    isTreeLoading
+    isTreeLoading,
+    isPreFetching
   } = useWebSocket(currentWorkspaceId);
 
   // Local state for the UI
@@ -196,41 +197,34 @@ export default function BuilderPage() {
 
   useEffect(() => {
     if (status === 'Connected' && !hasPreFetched.current && fileTree.length > 0) {
-
       const allPaths = getAllFilePaths(fileTree);
-
-      // Filter to only source files needed for preview
-      const sourceFiles = allPaths.filter(path =>
-        path.match(/\.(tsx?|jsx?|css)$/i)
-      );
-
-      // Request all files with delay to avoid overwhelming WebSocket
-      sourceFiles.forEach((path, index) => {
-        setTimeout(() => {
-          openFile(path);
-        }, index * 100); // 100ms delay between requests
-      });
-
-      hasPreFetched.current = true;
-    }
-  }, [status, openFile, fileTree]);
-
-
-  useEffect(() => {
-    if (status === 'Connected' && !hasPreFetched.current && fileTree.length > 0) {
       const entryFiles = findEntryFiles(fileTree);
-
-      // Fetch critical configuration files
       const configFiles = ['package.json', 'vite.config.ts', 'tsconfig.json', 'tsconfig.app.json', 'tsconfig.node.json', 'index.html', 'postcss.config.js', 'tailwind.config.js'];
 
+      // Create a unique set of files to pre-fetch silently
+      const filesToFetch = new Set<string>();
+
+      // Add config files
       configFiles.forEach(file => {
-        const exists = getAllFilePaths(fileTree).some(p => p.endsWith(file));
-        if (exists) openFile(file);
+        const found = allPaths.find(p => p === file || p.endsWith('/' + file));
+        if (found) filesToFetch.add(found);
       });
 
-      if (entryFiles.main) openFile(entryFiles.main);
-      if (entryFiles.app) openFile(entryFiles.app);
-      if (entryFiles.css) openFile(entryFiles.css);
+      // Add entry files
+      if (entryFiles.main) filesToFetch.add(entryFiles.main);
+      if (entryFiles.app) filesToFetch.add(entryFiles.app);
+      if (entryFiles.css) filesToFetch.add(entryFiles.css);
+
+      // Add all source files
+      allPaths.filter(path => path.match(/\.(tsx?|jsx?|css)$/i))
+        .forEach(path => filesToFetch.add(path));
+
+      // Request all files with delay to avoid overwhelming WebSocket
+      Array.from(filesToFetch).forEach((path, index) => {
+        setTimeout(() => {
+          openFile(path, true); // Use silent fetch to populate cache without auto-opening
+        }, index * 50); // Staggered delay
+      });
 
       hasPreFetched.current = true;
     }
@@ -396,7 +390,29 @@ export default function BuilderPage() {
           {/* Code Editor */}
           {(viewMode === ViewMode.CODE || viewMode === ViewMode.SPLIT) && (
             <div className={`${viewMode === ViewMode.SPLIT ? 'w-1/2' : 'w-full'} border-r border-gray-800 bg-[#0d1117] flex flex-col`}>
-              {activeFile ? (
+              {isTreeLoading || isPreFetching || (isFileLoading && !localFileContent) ? (
+                <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4 text-center text-gray-400">
+                  <div className="relative">
+                    <Code2 size={48} className="text-blue-500 opacity-20 animate-pulse" />
+                    <div className="absolute inset-0 blur-xl bg-blue-500/10 animate-pulse" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                    <p className="text-sm font-medium text-gray-200">
+                      {(isTreeLoading || isPreFetching) ? 'Scanning workspace...' : 'Loading file...'}
+                    </p>
+                    <p className="text-xs text-gray-500 leading-relaxed max-w-xs">
+                      {(isTreeLoading || isPreFetching)
+                        ? 'Analyzing project structure and indexing files'
+                        : 'Fetching file content from workspace'}
+                    </p>
+                  </div>
+                </div>
+              ) : activeFile ? (
                 <Editor
                   code={localFileContent}
                   onChange={handleEditorChange}
@@ -475,28 +491,8 @@ export default function BuilderPage() {
 }
 
 // Helper to extract paths if necessary, assuming FileNode structure
-function extractPaths(nodes: FileNode[]): string[] {
+/* function extractPaths(nodes: FileNode[]): string[] {
   const paths: string[] = [];
-
-  if (!nodes || !Array.isArray(nodes)) {
-    console.warn('⚠️ extractPaths received invalid nodes:', nodes);
-    return paths;
-  }
-
-  const traverse = (items: FileNode[]) => {
-    items.forEach(node => {
-      // Only add files (not directories) to the paths array
-      if (node.type === 'file' && node.path) {
-        paths.push(node.path);
-      }
-
-      // Recursively traverse children
-      if (node.children && Array.isArray(node.children)) {
-        traverse(node.children);
-      }
-    });
-  };
-
-  traverse(nodes);
+...
   return paths;
-}
+} */

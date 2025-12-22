@@ -15,6 +15,8 @@ interface WebSocketMessage {
   new_path?: string;
 }
 
+const normalizePath = (path: string) => path.replace(/^\/+/, '');
+
 export const useWebSocket = (workspaceId: string) => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
@@ -25,7 +27,9 @@ export const useWebSocket = (workspaceId: string) => {
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [isFileLoading, setIsFileLoading] = useState<boolean>(false);
   const [isTreeLoading, setIsTreeLoading] = useState<boolean>(true);
+  const [silentRequestCount, setSilentRequestCount] = useState<number>(0);
   const activeFileRef = useRef<string | null>(null);
+  const silentRequests = useRef<Set<string>>(new Set());
 
   // Sync ref with state
   useEffect(() => {
@@ -133,12 +137,22 @@ export const useWebSocket = (workspaceId: string) => {
             break;
 
           case "file_content":
-            console.log(`📄 File content received: ${msg.path} (${msg.content?.length || 0} chars)`);
             if (msg.content !== undefined && msg.path) {
-              setCurrentFileContent(msg.content);
-              setLastReceivedFile({ path: msg.path, content: msg.content });
-              setActiveFile(msg.path);
-              setIsFileLoading(false);
+              const normPath = normalizePath(msg.path);
+              setLastReceivedFile({ path: normPath, content: msg.content });
+              
+              // Check if this was a silent request
+              if (silentRequests.current.has(normPath)) {
+                silentRequests.current.delete(normPath);
+                setSilentRequestCount(prev => Math.max(0, prev - 1));
+                console.log(`🔇 Silent fetch completed for: ${normPath}`);
+              } else if (normPath === activeFileRef.current || !activeFileRef.current) {
+                // Only set as active if it matches what we requested or if nothing is active
+                // Avoid auto-opening files during pre-fetch if they weren't matched above
+                setCurrentFileContent(msg.content);
+                setActiveFile(normPath);
+                setIsFileLoading(false);
+              }
             }
             break;
 
@@ -269,10 +283,20 @@ export const useWebSocket = (workspaceId: string) => {
   }, [socket, logSocketMessage]);
 
   // API Methods
-  const openFile = useCallback((path: string) => {
-    console.log(`📂 Requesting file: ${path}`);
-    setIsFileLoading(true);
-    return send({ action: "open_file", path });
+  const openFile = useCallback((path: string, silent: boolean = false) => {
+    const normPath = normalizePath(path);
+    console.log(`📂 Requesting file: ${normPath}${silent ? ' (silent)' : ''}`);
+    
+    if (!silent) {
+      setIsFileLoading(true);
+    } else {
+      // Idempotent: Only track as silent if not already being fetched silently
+      if (!silentRequests.current.has(normPath)) {
+        silentRequests.current.add(normPath);
+        setSilentRequestCount(prev => prev + 1);
+      }
+    }
+    return send({ action: "open_file", path: normPath });
   }, [send]);
 
   const updateFile = useCallback((path: string, content: string) => {
@@ -359,6 +383,7 @@ export const useWebSocket = (workspaceId: string) => {
     reconnect,
     isFileLoading,
     isTreeLoading,
+    isPreFetching: silentRequestCount > 0,
     isConnected: status === "Connected",
   };
 };
