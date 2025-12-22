@@ -10,18 +10,27 @@ interface CodePreviewProps {
   webContainerState: {
     instance: any;
     isLoading: boolean;
+    isSetupComplete: boolean;
+    setIsSetupComplete: (complete: boolean) => void;
     error: string | null;
     serverUrl: string;
   };
   isProduction?: boolean;
 }
 
-export const CodePreview: React.FC<CodePreviewProps> = ({ 
-  files, 
+export const CodePreview: React.FC<CodePreviewProps> = ({
+  files,
   webContainerState,
   isProduction = false
 }) => {
-  const { instance, isLoading, error, serverUrl } = webContainerState;
+  const {
+    instance,
+    isLoading,
+    isSetupComplete,
+    setIsSetupComplete,
+    error,
+    serverUrl
+  } = webContainerState;
 
   if (isLoading) {
     return (
@@ -39,7 +48,7 @@ export const CodePreview: React.FC<CodePreviewProps> = ({
         <h3 className="text-lg font-bold text-red-700 mb-2">Failed to start WebContainer</h3>
         <p className="text-red-600 text-center">{error}</p>
         <p className="text-gray-500 text-sm mt-4 max-w-md text-center">
-            Note: WebContainer requires a secure context (HTTPS) and specific headers (COOP/COEP) to function correctly.
+          Note: WebContainer requires a secure context (HTTPS) and specific headers (COOP/COEP) to function correctly.
         </p>
       </div>
     );
@@ -47,12 +56,14 @@ export const CodePreview: React.FC<CodePreviewProps> = ({
 
   return (
     <div className="w-full h-full bg-white relative rounded-lg overflow-hidden shadow-inner flex flex-col">
-       <WebContainerPreview 
-          files={files} 
-          webContainerInstance={instance}
-          serverUrl={serverUrl}
-          isProduction={isProduction}
-       />
+      <WebContainerPreview
+        files={files}
+        webContainerInstance={instance}
+        serverUrl={serverUrl}
+        isProduction={isProduction}
+        isSetupComplete={isSetupComplete}
+        setIsSetupComplete={setIsSetupComplete}
+      />
     </div>
   );
 };

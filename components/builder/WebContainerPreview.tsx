@@ -17,6 +17,8 @@ interface WebContainerPreviewProps {
   webContainerInstance: WebContainer | null;
   serverUrl: string;
   isProduction?: boolean;
+  isSetupComplete: boolean;
+  setIsSetupComplete: (complete: boolean) => void;
 }
 
 const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
@@ -24,6 +26,8 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
   webContainerInstance,
   serverUrl,
   isProduction = false,
+  isSetupComplete,
+  setIsSetupComplete,
 }) => {
   const [loadingState, setLoadingState] = useState({
     mounting: false,
@@ -35,26 +39,45 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
   const [currentStep, setCurrentStep] = useState(0);
   const totalSteps = isProduction ? 5 : 4;
   const [setupError, setSetupError] = useState<string | null>(null);
-  const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [terminalVisibility, setTerminalVisibility] = useState<"visible" | "minimized" | "closed">("visible");
 
   // Ref to access terminal methods
   const terminalRef = useRef<any>(null);
 
+  // Ref to prevent double setup execution in Concurrent Mode/Strict Mode
+  const setupStartedRef = useRef(false);
+
   // Initial setup effect
   useEffect(() => {
     async function setupContainer() {
-      if (!webContainerInstance || isSetupComplete) return;
+      // Don't start if we're already complete or already started
+      if (!webContainerInstance || isSetupComplete || setupStartedRef.current) return;
 
+      // If server is already running, we can skip setup but we should still
+      // set the flag so sync logic works.
+      if (serverUrl) {
+        console.log("🌍 Server already running, skipping setup sequence");
+        setIsSetupComplete(true);
+        return;
+      }
+
+      // Check if we have the necessary files to start (at least package.json)
+      if (!files['package.json'] && !files['/package.json']) {
+        console.log("⏳ Waiting for package.json before setup...");
+        return;
+      }
+
+      setupStartedRef.current = true;
       try {
         setSetupError(null);
 
-        // Check if files are already mounted by checking if package.json exists
+        // Check if files are already mounted by checking if package.json exists in FS
         let filesMounted = false;
         try {
-          await webContainerInstance.fs.readFile('package.json');
+          // Use absolute path for robustness
+          await webContainerInstance.fs.readFile('/package.json');
           filesMounted = true;
-          console.log("📄 package.json found, skipping mount");
+          console.log("📄 /package.json found in FS, skipping mount");
         } catch (e) {
           // package.json doesn't exist, need to mount
         }
@@ -77,7 +100,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
         } else {
           setCurrentStep(1);
           if (terminalRef.current?.writeToTerminal) {
-            terminalRef.current.writeToTerminal("📁 Files already mounted, skipping...\r\n");
+            terminalRef.current.writeToTerminal("📁 Files already mounted in this session, skipping...\r\n");
           }
         }
 
@@ -91,10 +114,10 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
         // Check if node_modules exists to skip install
         let dependenciesInstalled = false;
         try {
-          const entries = await webContainerInstance.fs.readdir('.', { withFileTypes: true });
+          const entries = await webContainerInstance.fs.readdir('/', { withFileTypes: true });
           if (entries.some(entry => entry.name === 'node_modules' && entry.isDirectory())) {
             dependenciesInstalled = true;
-            console.log("📦 node_modules found, skipping install");
+            console.log("📦 node_modules found in FS, skipping install");
           }
         } catch (e) {
           console.error("Error checking node_modules:", e);
@@ -134,7 +157,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
           }
         } else {
           if (terminalRef.current?.writeToTerminal) {
-            terminalRef.current.writeToTerminal("📦 Dependencies already exist, skipping install...\r\n");
+            terminalRef.current.writeToTerminal("📦 Dependencies already exist in this session, skipping install...\r\n");
           }
         }
 
@@ -213,6 +236,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
         }
 
         setSetupError(errorMessage);
+        setupStartedRef.current = false; // Allow retry
         setLoadingState({
           mounting: false,
           installing: false,
@@ -224,7 +248,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
     }
 
     setupContainer();
-  }, [webContainerInstance, isSetupComplete, isProduction]);
+  }, [webContainerInstance, isSetupComplete, isProduction, serverUrl, files]);
 
 
   // Handle file updates without full re-setup
@@ -280,8 +304,8 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
 
     return (
       <span className={`text-sm font-medium ${isComplete ? 'text-green-600' :
-          isActive ? 'text-blue-600' :
-            'text-gray-500'
+        isActive ? 'text-blue-600' :
+          'text-gray-500'
         }`}>
         {label}
       </span>

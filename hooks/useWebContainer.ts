@@ -9,6 +9,7 @@ interface UseWebContainerProps {
 export const useWebContainer = ({ files }: UseWebContainerProps) => {
   const [instance, setInstance] = useState<WebContainer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState<string>("");
   
@@ -31,6 +32,8 @@ export const useWebContainer = ({ files }: UseWebContainerProps) => {
         webcontainer.on("server-ready", (port, url) => {
           console.log(`🌍 Server ready at ${url}:${port}`);
           setServerUrl(url);
+          // If server is ready, we can assume setup is mostly complete if it was triggered
+          // But we'll let the component manage the exact flag.
         });
 
       } catch (err) {
@@ -45,28 +48,13 @@ export const useWebContainer = ({ files }: UseWebContainerProps) => {
   }, [instance]);
 
   // Sync files when `files` prop changes
-  // We need to compare specific file content changes or just overwrite?
-  // Overwriting everything might be expensive.
-  // For now, let's just mount initially.
-  // Actually, standard pattern is to mount initial files, then use writeFile for updates.
-  // But here we receive a full dump of files.
+  // ...
   
-  // NOTE: This effect handles keeping the virtual FS in sync with the definition
-  useEffect(() => {
-    if (!instance) return;
-
-    // Use a simple debounce or logic to mount files
-    // Ideally we diff, but mounting everything is safer for correctness first.
-    // However, mounting completely replaces? No, mount adds/overwrites.
-    
-    // For large projects this is heavy. 
-    // We will assume `WebContainerPreview` handles the main init sequence (Mount -> Install -> Start).
-    // This hook just provides the instance and maybe a helper to mount.
-  }, [instance, files]);
-
   return {
     instance,
     isLoading,
+    isSetupComplete,
+    setIsSetupComplete,
     error,
     serverUrl,
   };
