@@ -37,7 +37,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
   const [setupError, setSetupError] = useState<string | null>(null);
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [terminalVisibility, setTerminalVisibility] = useState<"visible" | "minimized" | "closed">("visible");
-  
+
   // Ref to access terminal methods
   const terminalRef = useRef<any>(null);
 
@@ -48,20 +48,37 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
 
       try {
         setSetupError(null);
-        
-        // Step 1: Mount files
-        setLoadingState((prev) => ({ ...prev, mounting: true }));
-        setCurrentStep(1);
-        
-        if (terminalRef.current?.writeToTerminal) {
-          terminalRef.current.writeToTerminal("📁 Mounting files to WebContainer...\r\n");
+
+        // Check if files are already mounted by checking if package.json exists
+        let filesMounted = false;
+        try {
+          await webContainerInstance.fs.readFile('package.json');
+          filesMounted = true;
+          console.log("📄 package.json found, skipping mount");
+        } catch (e) {
+          // package.json doesn't exist, need to mount
         }
 
-        const webContainerFiles = transformFlatMapToWebContainer(files);
-        await webContainerInstance.mount(webContainerFiles);
-        
-        if (terminalRef.current?.writeToTerminal) {
-          terminalRef.current.writeToTerminal("✅ Files mounted successfully\r\n");
+        if (!filesMounted) {
+          // Step 1: Mount files
+          setLoadingState((prev) => ({ ...prev, mounting: true }));
+          setCurrentStep(1);
+
+          if (terminalRef.current?.writeToTerminal) {
+            terminalRef.current.writeToTerminal("📁 Mounting files to WebContainer...\r\n");
+          }
+
+          const webContainerFiles = transformFlatMapToWebContainer(files);
+          await webContainerInstance.mount(webContainerFiles);
+
+          if (terminalRef.current?.writeToTerminal) {
+            terminalRef.current.writeToTerminal("✅ Files mounted successfully\r\n");
+          }
+        } else {
+          setCurrentStep(1);
+          if (terminalRef.current?.writeToTerminal) {
+            terminalRef.current.writeToTerminal("📁 Files already mounted, skipping...\r\n");
+          }
         }
 
         setLoadingState((prev) => ({
@@ -71,43 +88,55 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
         }));
         setCurrentStep(2);
 
-        // Step 2: Install dependencies
-        if (terminalRef.current?.writeToTerminal) {
-          terminalRef.current.writeToTerminal("📦 Installing dependencies...\r\n");
-        }
-        
-        const installProcess = await webContainerInstance.spawn("npm", [
-          "install", 
-          "--prefer-offline", 
-          "--no-audit", 
-          "--no-fund",
-          "--quiet"
-        ]);
-
-        // Stream install output to terminal
-        installProcess.output.pipeTo(
-          new WritableStream({
-            write(data) {
-              if (terminalRef.current?.writeToTerminal) {
-                terminalRef.current.writeToTerminal(data);
-              }
-            },
-          })
-        );
-
-        const installExitCode = await installProcess.exit;
-
-        if (installExitCode !== 0) {
-          throw new Error(`Failed to install dependencies. Exit code: ${installExitCode}`);
+        // Check if node_modules exists to skip install
+        let dependenciesInstalled = false;
+        try {
+          const entries = await webContainerInstance.fs.readdir('.', { withFileTypes: true });
+          if (entries.some(entry => entry.name === 'node_modules' && entry.isDirectory())) {
+            dependenciesInstalled = true;
+            console.log("📦 node_modules found, skipping install");
+          }
+        } catch (e) {
+          console.error("Error checking node_modules:", e);
         }
 
-        if (terminalRef.current?.writeToTerminal) {
-          terminalRef.current.writeToTerminal("✅ Dependencies installed successfully\r\n");
-        }
+        if (!dependenciesInstalled) {
+          // Step 2: Install dependencies
+          if (terminalRef.current?.writeToTerminal) {
+            terminalRef.current.writeToTerminal("📦 Installing dependencies with pnpm...\r\n");
+          }
 
-        // After install, we can potentially save a flag in sessionStorage to skip next time
-        // if we had a way to persist the node_modules. Since we don't, we just optimize the command.
-        // But for this session (remounts), we already use isSetupComplete.
+          // Use pnpm as requested
+          const installProcess = await webContainerInstance.spawn("pnpm", [
+            "install",
+            "--prefer-offline",
+          ]);
+
+          // Stream install output to terminal
+          installProcess.output.pipeTo(
+            new WritableStream({
+              write(data) {
+                if (terminalRef.current?.writeToTerminal) {
+                  terminalRef.current.writeToTerminal(data);
+                }
+              },
+            })
+          );
+
+          const installExitCode = await installProcess.exit;
+
+          if (installExitCode !== 0) {
+            throw new Error(`Failed to install dependencies. Exit code: ${installExitCode}`);
+          }
+
+          if (terminalRef.current?.writeToTerminal) {
+            terminalRef.current.writeToTerminal("✅ Dependencies installed successfully\r\n");
+          }
+        } else {
+          if (terminalRef.current?.writeToTerminal) {
+            terminalRef.current.writeToTerminal("📦 Dependencies already exist, skipping install...\r\n");
+          }
+        }
 
         if (isProduction) {
           setCurrentStep(3);
@@ -116,7 +145,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
             terminalRef.current.writeToTerminal("🏗️ Building for production...\r\n");
           }
 
-          const buildProcess = await webContainerInstance.spawn("npm", ["run", "build"]);
+          const buildProcess = await webContainerInstance.spawn("pnpm", ["run", "build"]);
           buildProcess.output.pipeTo(
             new WritableStream({
               write(data) {
@@ -142,7 +171,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
             terminalRef.current.writeToTerminal("🚀 Serving production build...\r\n");
           }
 
-          const serveProcess = await webContainerInstance.spawn("npx", ["-y", "serve", "dist"]);
+          const serveProcess = await webContainerInstance.spawn("pnpm", ["dlx", "serve", "dist"]);
           serveProcess.output.pipeTo(
             new WritableStream({
               write(data) {
@@ -159,8 +188,8 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
           if (terminalRef.current?.writeToTerminal) {
             terminalRef.current.writeToTerminal("🚀 Starting development server...\r\n");
           }
-          
-          const startProcess = await webContainerInstance.spawn("npm", ["run", "dev"]);
+
+          const startProcess = await webContainerInstance.spawn("pnpm", ["run", "dev"]);
           startProcess.output.pipeTo(
             new WritableStream({
               write(data) {
@@ -171,18 +200,18 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
             })
           );
         }
-        
+
         setCurrentStep(isProduction ? 5 : 4);
         setIsSetupComplete(true);
 
       } catch (err) {
         console.error("Error setting up container:", err);
         const errorMessage = err instanceof Error ? err.message : String(err);
-        
+
         if (terminalRef.current?.writeToTerminal) {
           terminalRef.current.writeToTerminal(`❌ Error: ${errorMessage}\r\n`);
         }
-        
+
         setSetupError(errorMessage);
         setLoadingState({
           mounting: false,
@@ -203,36 +232,36 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
   // Ideally we use `fs.writeFile` for delta updates.
   // For now, let's assume the user manually restarts if they want full sync,
   // OR we implement a "Save" in Builder that writes to WebContainer.
-  
+
   // Let's implement active file sync if possible
   const prevFilesRef = useRef(files);
   useEffect(() => {
-     if (!webContainerInstance || !isSetupComplete) return;
-     
-     // Find changed files
-     const changedFiles: Record<string, string> = {};
-     let hasChanges = false;
-     
-     Object.keys(files).forEach(path => {
-         if (files[path] !== prevFilesRef.current[path]) {
-             changedFiles[path] = files[path];
-             hasChanges = true;
-         }
-     });
-     
-     if (hasChanges) {
-         console.log("Syncing changes to WebContainer...", Object.keys(changedFiles));
-         Promise.all(Object.entries(changedFiles).map(async ([path, content]) => {
-             try {
-                await webContainerInstance.fs.writeFile(path, content);
-             } catch(e) {
-                console.error(`Failed to write ${path}:`, e);
-             }
-         })).then(() => {
-             console.log("Synced changes");
-             prevFilesRef.current = files;
-         });
-     }
+    if (!webContainerInstance || !isSetupComplete) return;
+
+    // Find changed files
+    const changedFiles: Record<string, string> = {};
+    let hasChanges = false;
+
+    Object.keys(files).forEach(path => {
+      if (files[path] !== prevFilesRef.current[path]) {
+        changedFiles[path] = files[path];
+        hasChanges = true;
+      }
+    });
+
+    if (hasChanges) {
+      console.log("Syncing changes to WebContainer...", Object.keys(changedFiles));
+      Promise.all(Object.entries(changedFiles).map(async ([path, content]) => {
+        try {
+          await webContainerInstance.fs.writeFile(path, content);
+        } catch (e) {
+          console.error(`Failed to write ${path}:`, e);
+        }
+      })).then(() => {
+        console.log("Synced changes");
+        prevFilesRef.current = files;
+      });
+    }
   }, [files, webContainerInstance, isSetupComplete]);
 
   const getStepIcon = (stepIndex: number) => {
@@ -248,13 +277,12 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
   const getStepText = (stepIndex: number, label: string) => {
     const isActive = stepIndex === currentStep;
     const isComplete = stepIndex < currentStep;
-    
+
     return (
-      <span className={`text-sm font-medium ${
-        isComplete ? 'text-green-600' : 
-        isActive ? 'text-blue-600' : 
-        'text-gray-500'
-      }`}>
+      <span className={`text-sm font-medium ${isComplete ? 'text-green-600' :
+          isActive ? 'text-blue-600' :
+            'text-gray-500'
+        }`}>
         {label}
       </span>
     );
@@ -284,27 +312,27 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
                 {getStepText(3, isProduction ? "Building project" : "Starting development server")}
               </div>
               {isProduction && (
-                 <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3">
                   {getStepIcon(4)}
                   {getStepText(4, "Serving assets")}
                 </div>
               )}
-               <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3">
                 {getStepIcon(isProduction ? 5 : 4)}
                 {getStepText(isProduction ? 5 : 4, "Ready")}
               </div>
             </div>
-            
-             {setupError && (
-                <div className="p-3 bg-red-100 text-red-800 rounded text-sm mt-4 wrap-break-word">
-                   {setupError}
-                </div>
+
+            {setupError && (
+              <div className="p-3 bg-red-100 text-red-800 rounded text-sm mt-4 wrap-break-word">
+                {setupError}
+              </div>
             )}
           </div>
 
           <div className="flex-1 p-4 border-t border-gray-200">
             <Suspense fallback={<div className="h-full flex items-center justify-center text-gray-500">Loading Terminal...</div>}>
-              <TerminalComponent 
+              <TerminalComponent
                 ref={terminalRef}
                 webContainerInstance={webContainerInstance}
                 theme="dark"
@@ -324,33 +352,33 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
               allow="cross-origin-isolated"
             />
           </div>
-          
+
           {/* Terminal at bottom */}
           {terminalVisibility !== "closed" ? (
-             <div className={`${terminalVisibility === "minimized" ? 'h-auto' : 'h-1/3 min-h-[200px]'} border-t border-gray-800 transition-all duration-300`}>
-                <Suspense fallback={<div className="h-full flex items-center justify-center text-gray-500 bg-[#09090B]">Loading Terminal...</div>}>
-                  <TerminalComponent 
-                    ref={terminalRef}
-                    webContainerInstance={webContainerInstance}
-                    theme="dark"
-                    className="h-full border-none rounded-none"
-                    onClose={() => setTerminalVisibility("closed")}
-                    onMinimize={(min) => setTerminalVisibility(min ? "minimized" : "visible")}
-                    isMinimized={terminalVisibility === "minimized"}
-                  />
-                </Suspense>
-              </div>
+            <div className={`${terminalVisibility === "minimized" ? 'h-auto' : 'h-1/3 min-h-[200px]'} border-t border-gray-800 transition-all duration-300`}>
+              <Suspense fallback={<div className="h-full flex items-center justify-center text-gray-500 bg-[#09090B]">Loading Terminal...</div>}>
+                <TerminalComponent
+                  ref={terminalRef}
+                  webContainerInstance={webContainerInstance}
+                  theme="dark"
+                  className="h-full border-none rounded-none"
+                  onClose={() => setTerminalVisibility("closed")}
+                  onMinimize={(min) => setTerminalVisibility(min ? "minimized" : "visible")}
+                  isMinimized={terminalVisibility === "minimized"}
+                />
+              </Suspense>
+            </div>
           ) : (
-             <div className="absolute bottom-4 right-4 z-50">
-                <Button 
-                   onClick={() => setTerminalVisibility("visible")}
-                   size="sm"
-                   className="bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 flex items-center gap-2 shadow-lg"
-                >
-                   <TerminalIcon className="h-4 w-4" />
-                   Open Terminal
-                </Button>
-             </div>
+            <div className="absolute bottom-4 right-4 z-50">
+              <Button
+                onClick={() => setTerminalVisibility("visible")}
+                size="sm"
+                className="bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 flex items-center gap-2 shadow-lg"
+              >
+                <TerminalIcon className="h-4 w-4" />
+                Open Terminal
+              </Button>
+            </div>
           )}
         </div>
       )}
