@@ -23,6 +23,8 @@ export const useWebSocket = (workspaceId: string) => {
   const [currentFileContent, setCurrentFileContent] = useState<string>("");
   const [lastReceivedFile, setLastReceivedFile] = useState<{ path: string; content: string } | null>(null);
   const [activeFile, setActiveFile] = useState<string | null>(null);
+  const [isFileLoading, setIsFileLoading] = useState<boolean>(false);
+  const [isTreeLoading, setIsTreeLoading] = useState<boolean>(true);
   const activeFileRef = useRef<string | null>(null);
 
   // Sync ref with state
@@ -126,6 +128,7 @@ export const useWebSocket = (workspaceId: string) => {
             console.log(`🌳 File tree received with ${msg.items?.length || 0} root items`);
             if (msg.items) {
               setFileTree(msg.items);
+              setIsTreeLoading(false);
             }
             break;
 
@@ -135,6 +138,7 @@ export const useWebSocket = (workspaceId: string) => {
               setCurrentFileContent(msg.content);
               setLastReceivedFile({ path: msg.path, content: msg.content });
               setActiveFile(msg.path);
+              setIsFileLoading(false);
             }
             break;
 
@@ -267,6 +271,7 @@ export const useWebSocket = (workspaceId: string) => {
   // API Methods
   const openFile = useCallback((path: string) => {
     console.log(`📂 Requesting file: ${path}`);
+    setIsFileLoading(true);
     return send({ action: "open_file", path });
   }, [send]);
 
@@ -317,6 +322,7 @@ export const useWebSocket = (workspaceId: string) => {
 
   const refreshFileTree = useCallback(() => {
      console.log("🌲 Requesting file tree refresh");
+     setIsTreeLoading(true);
      return send({ action: "get_tree" });
   }, [send]);
 
@@ -351,6 +357,8 @@ export const useWebSocket = (workspaceId: string) => {
     installDependencies,
     refreshFileTree,
     reconnect,
+    isFileLoading,
+    isTreeLoading,
     isConnected: status === "Connected",
   };
 };

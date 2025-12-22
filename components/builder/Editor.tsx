@@ -10,8 +10,7 @@ interface EditorProps {
 }
 
 export const Editor: React.FC<EditorProps> = ({ code, onChange, filename }) => {
-  // Extract extension from filename or default to plaintext
-  // The MonacoEditor component expects an extension (e.g. "ts", "js") as the 'language' prop
+
   const extension = filename ? filename.split('.').pop() || 'plaintext' : 'plaintext';
 
   return (

@@ -11,8 +11,7 @@ import {
   GitBranch,
   ExternalLink,
   Copy,
-  Check,
-  ShieldCheck
+  Check
 } from 'lucide-react';
 
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -48,7 +47,9 @@ export default function BuilderPage() {
     recloneProject,
     cloneRepo,
     pushChanges,
-    installDependencies
+    installDependencies,
+    isFileLoading,
+    isTreeLoading
   } = useWebSocket(currentWorkspaceId);
 
   // Local state for the UI
@@ -68,8 +69,6 @@ export default function BuilderPage() {
   const [isPushing, setIsPushing] = useState(false);
   const [commitMessage, setCommitMessage] = useState("Update from Builder IDE");
   const [copied, setCopied] = useState(false);
-  const [isProduction, setIsProduction] = useState(false);
-  const [usePublicUrl, setUsePublicUrl] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
 
   useEffect(() => {
@@ -91,15 +90,14 @@ export default function BuilderPage() {
 
   const getEffectiveUrl = (url: string) => {
     if (!url) return '';
-    if (usePublicUrl) {
+    // Automatically use public URL if not on localhost
+    const isLocal = typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+    if (!isLocal) {
       return url.replace('.local-corp.', '.');
     }
     return url;
-  };
-
-  const handleConnect = () => {
-    const token = Math.random().toString(36).substring(2, 10);
-    window.open(`/webcontainer/connect/${token}`, '_blank', 'width=500,height=600');
   };
 
   // WebContainer state
@@ -290,6 +288,7 @@ export default function BuilderPage() {
           onCreateDirectory={createDirectory}
           onDeleteFile={deleteFile}
           onRename={renameFile}
+          isLoading={isTreeLoading}
         />
       )}
 
@@ -347,63 +346,16 @@ export default function BuilderPage() {
 
           {webContainerState.serverUrl && (
             <div className="hidden lg:flex items-center gap-1 bg-gray-900/50 p-1 rounded-md border border-gray-800">
-              <div className="flex items-center gap-2 px-2 border-r border-gray-800">
-                <button
-                  onClick={handleConnect}
-                  className="p-1.5 hover:bg-gray-800 rounded-md text-blue-400 hover:text-blue-300 transition-colors"
-                  title="Connect Handshake"
-                >
-                  <ShieldCheck size={14} />
-                </button>
-
-                <div className="flex items-center gap-0.5 bg-gray-800 rounded p-0.5">
-                  <button
-                    onClick={() => setIsProduction(false)}
-                    className={cn(
-                      "text-[9px] px-1.5 py-0.5 rounded transition-all font-bold uppercase tracking-tighter",
-                      !isProduction ? "bg-blue-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-300"
-                    )}
-                  >
-                    Dev
-                  </button>
-                  <button
-                    onClick={() => setIsProduction(true)}
-                    className={cn(
-                      "text-[9px] px-1.5 py-0.5 rounded transition-all font-bold uppercase tracking-tighter",
-                      isProduction ? "bg-green-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-300"
-                    )}
-                  >
-                    Prod
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-1.5 ml-1">
-                  <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">Public</span>
-                  <button
-                    onClick={() => setUsePublicUrl(!usePublicUrl)}
-                    className={cn(
-                      "w-6 h-3.5 rounded-full transition-colors relative",
-                      usePublicUrl ? "bg-blue-600" : "bg-gray-700"
-                    )}
-                  >
-                    <div className={cn(
-                      "w-2.5 h-2.5 bg-white rounded-full absolute top-0.5 transition-all",
-                      usePublicUrl ? "right-0.5" : "left-0.5"
-                    )} />
-                  </button>
-                </div>
-              </div>
-
               <a
                 href={getEffectiveUrl(webContainerState.serverUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-800 rounded-md transition-all group"
+                className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-800 rounded-md transition-all group"
               >
                 <div className="flex items-center gap-1.5">
-                  <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", isProduction ? "bg-green-500" : "bg-blue-500")} />
+                  <div className="w-1.5 h-1.5 rounded-full animate-pulse bg-blue-500" />
                   <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider group-hover:text-white transition-colors">
-                    {isProduction ? 'Live' : 'Preview'}
+                    Preview
                   </span>
                 </div>
                 <ExternalLink size={13} className="text-gray-500 group-hover:text-blue-400 transition-colors" />
@@ -445,7 +397,11 @@ export default function BuilderPage() {
           {(viewMode === ViewMode.CODE || viewMode === ViewMode.SPLIT) && (
             <div className={`${viewMode === ViewMode.SPLIT ? 'w-1/2' : 'w-full'} border-r border-gray-800 bg-[#0d1117] flex flex-col`}>
               {activeFile ? (
-                <Editor code={localFileContent} onChange={handleEditorChange} filename={activeFile || undefined} />
+                <Editor
+                  code={localFileContent}
+                  onChange={handleEditorChange}
+                  filename={activeFile || undefined}
+                />
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-gray-500 gap-2">
                   <Code2 size={48} className="opacity-20" />
@@ -466,7 +422,6 @@ export default function BuilderPage() {
               files={filesMap}
               activeFile={activeFile || ''}
               webContainerState={webContainerState}
-              isProduction={isProduction}
             />
           </div>
         </div>
