@@ -146,9 +146,9 @@ export const useWebSocket = (workspaceId: string) => {
                 silentRequests.current.delete(normPath);
                 setSilentRequestCount(prev => Math.max(0, prev - 1));
                 console.log(`🔇 Silent fetch completed for: ${normPath}`);
-              } else if (normPath === activeFileRef.current || !activeFileRef.current) {
-                // Only set as active if it matches what we requested or if nothing is active
-                // Avoid auto-opening files during pre-fetch if they weren't matched above
+              } else {
+                // For non-silent requests (explicit user clicks or AI tasks), 
+                // always update content and set as active
                 setCurrentFileContent(msg.content);
                 setActiveFile(normPath);
                 setIsFileLoading(false);
