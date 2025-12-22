@@ -23,6 +23,12 @@ export const useWebSocket = (workspaceId: string) => {
   const [currentFileContent, setCurrentFileContent] = useState<string>("");
   const [lastReceivedFile, setLastReceivedFile] = useState<{ path: string; content: string } | null>(null);
   const [activeFile, setActiveFile] = useState<string | null>(null);
+  const activeFileRef = useRef<string | null>(null);
+
+  // Sync ref with state
+  useEffect(() => {
+    activeFileRef.current = activeFile;
+  }, [activeFile]);
   
   const messageCount = useRef(0);
   const reconnectAttempts = useRef(0);
@@ -138,7 +144,7 @@ export const useWebSocket = (workspaceId: string) => {
             if (msg.content !== undefined && msg.path) {
               setLastReceivedFile({ path: msg.path, content: msg.content });
               // If this is the active file, update the editor content
-              if (msg.path === activeFile) {
+              if (msg.path === activeFileRef.current) {
                 setCurrentFileContent(msg.content);
               }
             }
@@ -159,7 +165,7 @@ export const useWebSocket = (workspaceId: string) => {
               setFileTree(msg.tree.items);
             }
             // Clear active file if it was deleted
-            if (msg.path === activeFile) {
+            if (msg.path === activeFileRef.current) {
               setActiveFile(null);
               setCurrentFileContent("");
             }
@@ -172,7 +178,7 @@ export const useWebSocket = (workspaceId: string) => {
               setFileTree(msg.tree.items);
             }
             // Update active file if it was renamed
-            if (msg.old_path === activeFile) {
+            if (msg.old_path === activeFileRef.current) {
               setActiveFile(msg.new_path || null);
             }
             break;
@@ -224,7 +230,7 @@ export const useWebSocket = (workspaceId: string) => {
       }
       ws.close();
     };
-  }, [workspaceId, logSocketMessage, activeFile]);
+  }, [workspaceId, logSocketMessage]);
 
   // Update the ref whenever connect changes
   useEffect(() => {
@@ -304,6 +310,11 @@ export const useWebSocket = (workspaceId: string) => {
     return send({ action: "github_push", message });
   }, [send]);
 
+  const installDependencies = useCallback(() => {
+    console.log(`📦 Installing project dependencies`);
+    return send({ action: "install_project" });
+  }, [send]);
+
   const refreshFileTree = useCallback(() => {
      console.log("🌲 Requesting file tree refresh");
      return send({ action: "get_tree" });
@@ -337,6 +348,7 @@ export const useWebSocket = (workspaceId: string) => {
     recloneProject,
     cloneRepo,
     pushChanges,
+    installDependencies,
     refreshFileTree,
     reconnect,
     isConnected: status === "Connected",
