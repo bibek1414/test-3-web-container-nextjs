@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2, RefreshCw, AlertCircle } from 'lucide-react';
 import WebContainerPreview from './WebContainerPreview';
-import { ViewMode } from '@/types';
 
 interface CodePreviewProps {
   files: Record<string, string>;
@@ -17,14 +16,12 @@ interface CodePreviewProps {
     serverUrl: string;
   };
   isProduction?: boolean;
-  viewMode: ViewMode;
 }
 
 export const CodePreview: React.FC<CodePreviewProps> = ({
   files,
   webContainerState,
   isProduction = false,
-  viewMode
 }) => {
   const {
     instance,
@@ -66,7 +63,6 @@ export const CodePreview: React.FC<CodePreviewProps> = ({
         isProduction={isProduction}
         isSetupComplete={isSetupComplete}
         setIsSetupComplete={setIsSetupComplete}
-        viewMode={viewMode}
       />
     </div>
   );

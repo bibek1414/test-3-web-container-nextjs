@@ -6,7 +6,6 @@ import { CheckCircle, Loader2, XCircle, Terminal as TerminalIcon } from "lucide-
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { WebContainer } from "@webcontainer/api";
-import { ViewMode } from "@/types";
 
 import { cn } from "@/lib/utils";
 
@@ -21,7 +20,6 @@ interface WebContainerPreviewProps {
   isProduction?: boolean;
   isSetupComplete: boolean;
   setIsSetupComplete: (complete: boolean) => void;
-  viewMode: ViewMode;
 }
 
 const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
@@ -31,7 +29,6 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
   isProduction = false,
   isSetupComplete,
   setIsSetupComplete,
-  viewMode,
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const totalSteps = isProduction ? 5 : 4;
@@ -296,12 +293,10 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
     );
   };
 
-  const isFullView = viewMode === ViewMode.PREVIEW;
 
   return (
     <div className={cn(
-      "h-full w-full flex flex-col bg-[#0d1117] transition-all duration-300 ease-in-out",
-      isFullView ? "p-6" : "p-0"
+      "h-full w-full flex flex-col bg-[#0d1117] transition-all duration-300 ease-in-out p-0"
     )}>
       {!serverUrl ? (
         <div className="flex-1 flex flex-col min-h-0 bg-[#0d1117] rounded-xl border border-gray-800/50 overflow-hidden">
@@ -377,8 +372,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
         </div>
       ) : (
         <div className={cn(
-          "flex-1 flex flex-col min-h-0 bg-white overflow-hidden relative",
-          isFullView ? "rounded-xl border border-gray-800/50" : "border-l border-gray-800"
+          "flex-1 flex flex-col min-h-0 bg-white overflow-hidden relative border-l border-gray-800"
         )}>
           {/* Browser Header */}
           <div className="h-11 bg-gray-900 border-b border-gray-800 flex items-center px-4 gap-4 shrink-0">
@@ -398,8 +392,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
 
           {/* Iframe Preview Container with Internal Padding */}
           <div className={cn(
-            "flex-1 relative bg-white overflow-hidden transition-all duration-300",
-            isFullView ? "p-8 md:p-10" : "p-2"
+            "flex-1 relative bg-white overflow-hidden transition-all duration-300 p-2"
           )}>
             <div className="w-full h-full rounded-lg  overflow-hidden">
               <iframe
