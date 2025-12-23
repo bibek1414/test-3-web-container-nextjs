@@ -1,7 +1,5 @@
 "use client";
 
-"use client";
-
 import React, { useEffect, useState, useRef, Suspense } from "react";
 import { transformFlatMapToWebContainer } from "../../utils/webcontainerUtils";
 import { CheckCircle, Loader2, XCircle, Terminal as TerminalIcon } from "lucide-react";
@@ -13,6 +11,7 @@ import { ViewMode } from "@/types";
 import { cn } from "@/lib/utils";
 
 // Lazy load Terminal to avoid SSR issues (xterm uses 'self')
+import { type TerminalRef } from './Terminal';
 const TerminalComponent = React.lazy(() => import('./Terminal'));
 
 interface WebContainerPreviewProps {
@@ -40,7 +39,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
   const [terminalVisibility, setTerminalVisibility] = useState<"visible" | "minimized" | "closed">("visible");
 
   // Ref to access terminal methods
-  const terminalRef = useRef<any>(null);
+  const terminalRef = useRef<TerminalRef | null>(null);
 
   // Ref to prevent double setup execution in Concurrent Mode/Strict Mode
   const setupStartedRef = useRef(false);
@@ -233,7 +232,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
     }
 
     setupContainer();
-  }, [webContainerInstance, isSetupComplete, isProduction, serverUrl, files]);
+  }, [webContainerInstance, isSetupComplete, isProduction, serverUrl, files, setIsSetupComplete]);
 
 
   // Handle file updates without full re-setup

@@ -23,7 +23,8 @@ interface CodePreviewProps {
 export const CodePreview: React.FC<CodePreviewProps> = ({
   files,
   webContainerState,
-  isProduction = false
+  isProduction = false,
+  viewMode
 }) => {
   const {
     instance,
@@ -65,7 +66,7 @@ export const CodePreview: React.FC<CodePreviewProps> = ({
         isProduction={isProduction}
         isSetupComplete={isSetupComplete}
         setIsSetupComplete={setIsSetupComplete}
-        viewMode={ViewMode}
+        viewMode={viewMode}
       />
     </div>
   );
