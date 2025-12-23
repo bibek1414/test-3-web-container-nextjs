@@ -8,6 +8,9 @@ import { CheckCircle, Loader2, XCircle, Terminal as TerminalIcon } from "lucide-
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { WebContainer } from "@webcontainer/api";
+import { ViewMode } from "@/types";
+
+import { cn } from "@/lib/utils";
 
 // Lazy load Terminal to avoid SSR issues (xterm uses 'self')
 const TerminalComponent = React.lazy(() => import('./Terminal'));
@@ -19,6 +22,7 @@ interface WebContainerPreviewProps {
   isProduction?: boolean;
   isSetupComplete: boolean;
   setIsSetupComplete: (complete: boolean) => void;
+  viewMode: ViewMode;
 }
 
 const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
@@ -28,14 +32,8 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
   isProduction = false,
   isSetupComplete,
   setIsSetupComplete,
+  viewMode,
 }) => {
-  const [loadingState, setLoadingState] = useState({
-    mounting: false,
-    installing: false,
-    building: false,
-    starting: false,
-    ready: false,
-  });
   const [currentStep, setCurrentStep] = useState(0);
   const totalSteps = isProduction ? 5 : 4;
   const [setupError, setSetupError] = useState<string | null>(null);
@@ -78,13 +76,12 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
           await webContainerInstance.fs.readFile('/package.json');
           filesMounted = true;
           console.log("📄 /package.json found in FS, skipping mount");
-        } catch (e) {
+        } catch {
           // package.json doesn't exist, need to mount
         }
 
         if (!filesMounted) {
           // Step 1: Mount files
-          setLoadingState((prev) => ({ ...prev, mounting: true }));
           setCurrentStep(1);
 
           if (terminalRef.current?.writeToTerminal) {
@@ -104,11 +101,6 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
           }
         }
 
-        setLoadingState((prev) => ({
-          ...prev,
-          mounting: false,
-          installing: true,
-        }));
         setCurrentStep(2);
 
         // Check if node_modules exists to skip install
@@ -237,13 +229,6 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
 
         setSetupError(errorMessage);
         setupStartedRef.current = false; // Allow retry
-        setLoadingState({
-          mounting: false,
-          installing: false,
-          building: false,
-          starting: false,
-          ready: false,
-        });
       }
     }
 
@@ -312,50 +297,76 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
     );
   };
 
+  const isFullView = viewMode === ViewMode.PREVIEW;
+
   return (
-    <div className="h-full w-full flex flex-col">
+    <div className={cn(
+      "h-full w-full flex flex-col bg-[#0d1117] transition-all duration-300 ease-in-out",
+      isFullView ? "p-6" : "p-0"
+    )}>
       {!serverUrl ? (
-        <div className="h-full flex flex-col">
-          <div className="w-full max-w-md p-6 m-5 rounded-lg bg-white dark:bg-zinc-800 shadow-sm mx-auto">
-            <Progress
-              value={(currentStep / totalSteps) * 100}
-              className="h-2 mb-6"
-            />
-
-            <div className="space-y-4 mb-6">
-              <div className="flex items-center gap-3">
-                {getStepIcon(1)}
-                {getStepText(1, "Mounting files")}
-              </div>
-              <div className="flex items-center gap-3">
-                {getStepIcon(2)}
-                {getStepText(2, "Installing dependencies")}
-              </div>
-              <div className="flex items-center gap-3">
-                {getStepIcon(3)}
-                {getStepText(3, isProduction ? "Building project" : "Starting development server")}
-              </div>
-              {isProduction && (
-                <div className="flex items-center gap-3">
-                  {getStepIcon(4)}
-                  {getStepText(4, "Serving assets")}
-                </div>
-              )}
-              <div className="flex items-center gap-3">
-                {getStepIcon(isProduction ? 5 : 4)}
-                {getStepText(isProduction ? 5 : 4, "Ready")}
-              </div>
+        <div className="flex-1 flex flex-col min-h-0 bg-[#0d1117] rounded-xl border border-gray-800/50 overflow-hidden">
+          {/* Browser Header for Loading */}
+          <div className="h-10 bg-gray-900/50 border-b border-gray-800/50 flex items-center px-4 gap-2 shrink-0">
+            <div className="flex gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-red-500/80" />
+              <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+              <div className="w-3 h-3 rounded-full bg-green-500/80" />
             </div>
-
-            {setupError && (
-              <div className="p-3 bg-red-100 text-red-800 rounded text-sm mt-4 wrap-break-word">
-                {setupError}
-              </div>
-            )}
+            <div className="flex-1 max-w-sm mx-auto h-6 bg-gray-950 rounded border border-gray-800 flex items-center px-2">
+              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse mr-2" />
+              <span className="text-[10px] text-gray-500 font-medium truncate uppercase tracking-widest">Environment Setup</span>
+            </div>
           </div>
 
-          <div className="flex-1 p-4 border-t border-gray-200">
-            <Suspense fallback={<div className="h-full flex items-center justify-center text-gray-500">Loading Terminal...</div>}>
+          <div className="flex-1 overflow-auto p-8 flex flex-col items-center justify-center bg-gray-950/20">
+            <div className="w-full max-w-md p-8 rounded-2xl bg-gray-900/50 border border-gray-800/50 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold text-gray-100">Environment Setup</h3>
+                <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-1 rounded">Step {currentStep}/{totalSteps}</span>
+              </div>
+
+              <Progress
+                value={(currentStep / totalSteps) * 100}
+                className="h-2 mb-8 bg-gray-800"
+              />
+
+              <div className="grid grid-cols-1 gap-4 mb-2">
+                <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
+                  {getStepIcon(1)}
+                  {getStepText(1, "Mounting files")}
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
+                  {getStepIcon(2)}
+                  {getStepText(2, "Installing dependencies")}
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
+                  {getStepIcon(3)}
+                  {getStepText(3, isProduction ? "Building project" : "Starting development server")}
+                </div>
+                {isProduction && (
+                  <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
+                    {getStepIcon(4)}
+                    {getStepText(4, "Serving assets")}
+                  </div>
+                )}
+                <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
+                  {getStepIcon(isProduction ? 5 : 4)}
+                  {getStepText(isProduction ? 5 : 4, "Ready")}
+                </div>
+              </div>
+
+              {setupError && (
+                <div className="p-4 bg-red-950/20 border border-red-500/20 text-red-400 rounded-xl text-sm mt-6 flex items-start gap-3">
+                  <XCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                  <span className="wrap-break-word">{setupError}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="h-1/3 min-h-[180px] border-t border-gray-800">
+            <Suspense fallback={<div className="h-full flex items-center justify-center text-gray-500 bg-gray-950">Loading Terminal...</div>}>
               <TerminalComponent
                 ref={terminalRef}
                 webContainerInstance={webContainerInstance}
@@ -366,20 +377,61 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
           </div>
         </div>
       ) : (
-        <div className="h-full flex flex-col">
-          {/* Preview */}
-          <div className="flex-1 relative bg-white">
-            <iframe
-              src={serverUrl}
-              className="w-full h-full border-none"
-              title="WebContainer Preview"
-              allow="cross-origin-isolated"
-            />
+        <div className={cn(
+          "flex-1 flex flex-col min-h-0 bg-white overflow-hidden relative",
+          isFullView ? "rounded-xl border border-gray-800/50" : "border-l border-gray-800"
+        )}>
+          {/* Browser Header */}
+          <div className="h-11 bg-gray-900 border-b border-gray-800 flex items-center px-4 gap-4 shrink-0">
+            <div className="flex gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-[#ff5f56] shadow-sm" />
+              <div className="w-3 h-3 rounded-full bg-[#ffbd2e] shadow-sm" />
+              <div className="w-3 h-3 rounded-full bg-[#27c93f] shadow-sm" />
+            </div>
+
+            <div className="flex-1 flex items-center bg-gray-950 rounded-md border border-gray-800 px-3 py-1 gap-2 max-w-2xl mx-auto">
+              <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+              <span className="text-[11px] text-gray-500 font-medium truncate select-all">{serverUrl}</span>
+            </div>
+
+            <div className="w-20" /> {/* Spacer to balance dots */}
           </div>
 
+          {/* Iframe Preview Container with Internal Padding */}
+          <div className={cn(
+            "flex-1 relative bg-white overflow-hidden transition-all duration-300",
+            isFullView ? "p-8 md:p-10" : "p-2"
+          )}>
+            <div className="w-full h-full rounded-lg  overflow-hidden">
+              <iframe
+                src={serverUrl}
+                className="w-full h-full border-none"
+                title="WebContainer Preview"
+                allow="cross-origin-isolated"
+              />
+            </div>
+          </div>
+
+          {/* Terminal Toggle Overlay */}
+          {terminalVisibility === "closed" && (
+            <div className="absolute bottom-4 right-4 z-50">
+              <Button
+                onClick={() => setTerminalVisibility("visible")}
+                size="sm"
+                className="bg-gray-900/90 backdrop-blur hover:bg-gray-800 text-white border border-gray-700 flex items-center gap-2 shadow-xl rounded-full px-4"
+              >
+                <TerminalIcon className="h-4 w-4" />
+                <span className="text-xs font-semibold">Terminal</span>
+              </Button>
+            </div>
+          )}
+
           {/* Terminal at bottom */}
-          {terminalVisibility !== "closed" ? (
-            <div className={`${terminalVisibility === "minimized" ? 'h-auto' : 'h-1/3 min-h-[200px]'} border-t border-gray-800 transition-all duration-300`}>
+          {terminalVisibility !== "closed" && (
+            <div className={cn(
+              "border-t border-gray-800 transition-all duration-300 ease-in-out",
+              terminalVisibility === "minimized" ? 'h-10' : 'h-1/3 min-h-[200px]'
+            )}>
               <Suspense fallback={<div className="h-full flex items-center justify-center text-gray-500 bg-[#09090B]">Loading Terminal...</div>}>
                 <TerminalComponent
                   ref={terminalRef}
@@ -391,17 +443,6 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
                   isMinimized={terminalVisibility === "minimized"}
                 />
               </Suspense>
-            </div>
-          ) : (
-            <div className="absolute bottom-4 right-4 z-50">
-              <Button
-                onClick={() => setTerminalVisibility("visible")}
-                size="sm"
-                className="bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 flex items-center gap-2 shadow-lg"
-              >
-                <TerminalIcon className="h-4 w-4" />
-                Open Terminal
-              </Button>
             </div>
           )}
         </div>
