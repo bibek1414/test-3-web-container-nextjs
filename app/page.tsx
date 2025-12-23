@@ -1,8 +1,12 @@
 import Link from "next/link";
+// import { getSubDomain } from "@/lib/auth";
 
-export default function Home() {
+export default async function Home() {
+  // const subDomain = await getSubDomain();
+  // const builderPath = subDomain ? `/builder/${subDomain}` : "/builder/nextjs-web-container";
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center font-sans">
+    <main className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100 flex items-center justify-center font-sans">
       <div className="max-w-2xl w-full text-center px-6">
         <div className="flex items-center justify-center gap-4">
           <Link

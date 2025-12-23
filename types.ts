@@ -31,3 +31,25 @@ export interface ChatState {
   isLoading: boolean;
   error: string | null;
 }
+export interface AuthUser {
+  user_id: number;
+  email: string;
+  store_name: string;
+  has_profile: boolean;
+  role: string;
+  phone_number: string;
+  domain: string;
+  sub_domain: string;
+  has_profile_completed: boolean;
+  is_template_account?: boolean;
+  first_login: boolean;
+  is_onboarding_complete: boolean;
+  website_type: string;
+}
+
+export interface DecodedToken extends AuthUser {
+  token_type: string;
+  exp: number;
+  iat: number;
+  jti: string;
+}
