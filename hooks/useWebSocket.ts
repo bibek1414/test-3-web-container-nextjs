@@ -344,6 +344,11 @@ export const useWebSocket = (workspaceId: string) => {
     return send({ action: "install_project" });
   }, [send]);
 
+  const uploadFile = useCallback((path: string, content: string) => {
+    console.log(`📤 Uploading file: ${path} (${content.length} chars)`);
+    return send({ action: "upload_file", path, content });
+  }, [send]);
+
   const refreshFileTree = useCallback(() => {
      console.log("🌲 Requesting file tree refresh");
      setIsTreeLoading(true);
@@ -378,6 +383,7 @@ export const useWebSocket = (workspaceId: string) => {
     recloneProject,
     cloneRepo,
     pushChanges,
+    uploadFile,
     installDependencies,
     refreshFileTree,
     reconnect,

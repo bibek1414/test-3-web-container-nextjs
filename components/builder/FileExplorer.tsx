@@ -23,6 +23,7 @@ interface FileExplorerProps {
   onDeleteFile: (fileName: string) => void;
   onRename: (oldPath: string, newPath: string) => void;
   onRefresh: () => void;
+  onUploadFile?: (path: string, content: string) => void;
   isLoading?: boolean;
 }
 
@@ -282,11 +283,31 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   onDeleteFile,
   onRename,
   onRefresh,
+  onUploadFile,
   isLoading
 }) => {
   const [isCreatingRoot, setIsCreatingRoot] = useState<'file' | 'folder' | null>(null);
   const [rootCreateName, setRootCreateName] = useState('');
   const [dragItem, setDragItem] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !onUploadFile) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      const path = `public/${file.name}`;
+      onUploadFile(path, content);
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleDragStart = (e: React.DragEvent, path: string) => {
     setDragItem(path);
@@ -400,6 +421,13 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             <Folder size={14} className="scale-90" />
           </button>
           <button
+            onClick={() => fileInputRef.current?.click()}
+            className="p-1.5 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors"
+            title="Upload Image"
+          >
+            <ImageIcon size={14} />
+          </button>
+          <button
             onClick={onRefresh}
             className="p-1.5 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors"
             title="Refresh Explorer"
@@ -408,6 +436,14 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           </button>
         </div>
       </div>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileUpload}
+        accept="image/*"
+        className="hidden"
+      />
 
       <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
         {isCreatingRoot && (

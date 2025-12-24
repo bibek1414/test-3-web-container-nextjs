@@ -47,6 +47,7 @@ export default function BuilderPage() {
     recloneProject,
     cloneRepo,
     pushChanges,
+    uploadFile,
     installDependencies,
     isFileLoading,
     isTreeLoading,
@@ -282,6 +283,7 @@ export default function BuilderPage() {
           onCreateDirectory={createDirectory}
           onDeleteFile={deleteFile}
           onRename={renameFile}
+          onUploadFile={uploadFile}
           isLoading={isTreeLoading}
         />
       )}
