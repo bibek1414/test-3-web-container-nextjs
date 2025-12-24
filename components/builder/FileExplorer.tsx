@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import {
   FileCode, Plus, Trash2, FolderOpen, Folder, ChevronRight,
-  ChevronDown, FileJson, FileType, File, Loader2
+  ChevronDown, FileJson, FileType, File, Loader2, RefreshCw, Image as ImageIcon
 } from 'lucide-react';
 
 interface FileNode {
@@ -18,10 +18,11 @@ interface FileExplorerProps {
   fileTree: FileNode[];
   activeFile: string;
   onSelectFile: (fileName: string) => void;
-  onCreateFile: (fileName: string) => void;
+  onCreateFile: (fileName: string, content?: string) => void;
   onCreateDirectory: (dirName: string) => void;
   onDeleteFile: (fileName: string) => void;
   onRename: (oldPath: string, newPath: string) => void;
+  onRefresh: () => void;
   isLoading?: boolean;
 }
 
@@ -31,11 +32,14 @@ const FileTreeItem: React.FC<{
   level: number;
   activeFile: string;
   onSelect: (path: string) => void;
-  onCreateFile: (path: string) => void;
+  onCreateFile: (path: string, content?: string) => void;
   onCreateDir: (path: string) => void;
   onDelete: (path: string) => void;
   onRename: (oldPath: string, newPath: string) => void;
+  onRefresh: () => void;
   defaultExpanded?: boolean;
+  onDragStart: (e: React.DragEvent, path: string) => void;
+  onDrop: (e: React.DragEvent, path: string) => void;
 }> = ({
   node,
   level,
@@ -45,7 +49,10 @@ const FileTreeItem: React.FC<{
   onCreateDir,
   onDelete,
   onRename,
-  defaultExpanded = false
+  onRefresh,
+  defaultExpanded = false,
+  onDragStart,
+  onDrop
 }) => {
     // Only auto-expand root level and src folder by default
     const shouldAutoExpand = level === 0 || node.name === 'src';
@@ -61,10 +68,12 @@ const FileTreeItem: React.FC<{
     const isFolder = node.type === 'directory' || node.type === 'folder';
 
     const getFileIcon = (name: string) => {
-      if (name.endsWith('.tsx') || name.endsWith('.ts')) return <FileCode size={14} className="text-blue-400" />;
-      if (name.endsWith('.css')) return <FileType size={14} className="text-sky-300" />;
-      if (name.endsWith('.json')) return <FileJson size={14} className="text-yellow-400" />;
-      if (name.endsWith('.html')) return <FileCode size={14} className="text-orange-400" />;
+      const lowerName = name.toLowerCase();
+      if (lowerName.endsWith('.tsx') || lowerName.endsWith('.ts')) return <FileCode size={14} className="text-blue-400" />;
+      if (lowerName.endsWith('.css')) return <FileType size={14} className="text-sky-300" />;
+      if (lowerName.endsWith('.json')) return <FileJson size={14} className="text-yellow-400" />;
+      if (lowerName.endsWith('.html')) return <FileCode size={14} className="text-orange-400" />;
+      if (/\.(png|jpe?g|gif|svg|webp|ico)$/i.test(lowerName)) return <ImageIcon size={14} className="text-emerald-400" />;
       return <File size={14} className="text-gray-400" />;
     };
 
@@ -82,6 +91,20 @@ const FileTreeItem: React.FC<{
       }
     };
 
+    const handleDragOver = (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isFolder) {
+        e.dataTransfer.dropEffect = 'move';
+      }
+    };
+
+    const handleDropInternal = (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onDrop(e, node.path);
+    };
+
     const handleRenameSubmit = () => {
       if (newName && newName !== node.name) {
         const parentPath = node.path.substring(0, node.path.lastIndexOf('/'));
@@ -93,7 +116,7 @@ const FileTreeItem: React.FC<{
 
     const handleCreateSubmit = () => {
       if (createName) {
-        const newPath = `${node.path}/${createName}`;
+        const newPath = node.path ? `${node.path}/${createName}` : createName;
         if (isCreating === 'file') onCreateFile(newPath);
         else onCreateDir(newPath);
       }
@@ -110,10 +133,14 @@ const FileTreeItem: React.FC<{
         `}
           style={{ paddingLeft: `${level * 12 + 8}px` }}
           onClick={() => isFolder ? handleFolderToggle() : onSelect(node.path)}
+          draggable={!isProtected}
+          onDragStart={(e) => onDragStart(e, node.path)}
+          onDragOver={handleDragOver}
+          onDrop={handleDropInternal}
         >
           <div className="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0">
             {isFolder && (
-              <span className="text-gray-500 flex-shrink-0">
+              <span className="text-gray-500 shrink-0">
                 {isLoading ? (
                   <Loader2 size={14} className="animate-spin" />
                 ) : isOpen ? (
@@ -123,16 +150,16 @@ const FileTreeItem: React.FC<{
                 )}
               </span>
             )}
-            {!isFolder && <span className="w-3.5 flex-shrink-0" />}
+            {!isFolder && <span className="w-3.5 shrink-0" />}
 
             {isFolder ? (
               isOpen ? (
-                <FolderOpen size={14} className="text-blue-400/80 flex-shrink-0" />
+                <FolderOpen size={14} className="text-blue-400/80 shrink-0" />
               ) : (
-                <Folder size={14} className="text-blue-400/80 flex-shrink-0" />
+                <Folder size={14} className="text-blue-400/80 shrink-0" />
               )
             ) : (
-              <span className="flex-shrink-0">{getFileIcon(node.name)}</span>
+              <span className="shrink-0">{getFileIcon(node.name)}</span>
             )}
 
             {isRenaming ? (
@@ -154,7 +181,7 @@ const FileTreeItem: React.FC<{
             )}
           </div>
 
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
             {isFolder && (
               <>
                 <button
@@ -234,7 +261,10 @@ const FileTreeItem: React.FC<{
                   onCreateDir={onCreateDir}
                   onDelete={onDelete}
                   onRename={onRename}
+                  onRefresh={onRefresh}
                   defaultExpanded={false}
+                  onDragStart={onDragStart}
+                  onDrop={onDrop}
                 />
               ))}
           </div>
@@ -251,10 +281,97 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   onCreateDirectory,
   onDeleteFile,
   onRename,
+  onRefresh,
   isLoading
 }) => {
   const [isCreatingRoot, setIsCreatingRoot] = useState<'file' | 'folder' | null>(null);
   const [rootCreateName, setRootCreateName] = useState('');
+  const [dragItem, setDragItem] = useState<string | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, path: string) => {
+    setDragItem(path);
+    e.dataTransfer.setData('text/plain', path);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetPath: string) => {
+    e.preventDefault();
+
+    // Check for external files first
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const files = Array.from(e.dataTransfer.files);
+      files.forEach(file => {
+        const reader = new FileReader();
+        const isImage = file.type.startsWith('image/');
+
+        reader.onload = (event) => {
+          const content = event.target?.result as string;
+          const fileName = file.name;
+          const newPath = targetPath ? `${targetPath}/${fileName}` : fileName;
+
+          if (isImage) {
+            onCreateFile(newPath, content);
+          } else {
+            onCreateFile(newPath);
+          }
+        };
+
+        if (isImage) {
+          reader.readAsDataURL(file);
+        } else {
+          reader.readAsText(file);
+        }
+      });
+      return;
+    }
+
+    const sourcePath = e.dataTransfer.getData('text/plain') || dragItem;
+
+    if (sourcePath && sourcePath !== targetPath) {
+      // Prevent dropping a folder into its own subfolder
+      if (targetPath.startsWith(sourcePath + '/')) return;
+
+      const fileName = sourcePath.split('/').pop();
+      const newPath = `${targetPath}/${fileName}`;
+
+      if (sourcePath !== newPath) {
+        onRename(sourcePath, newPath);
+      }
+    }
+    setDragItem(null);
+  };
+
+  // Handle Image Pasting
+  React.useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const blob = items[i].getAsFile();
+          if (!blob) continue;
+
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const base64Content = event.target?.result as string;
+            const timestamp = new Date().getTime();
+            const fileName = `pasted_image_${timestamp}.png`;
+            const path = activeFile ?
+              activeFile.substring(0, activeFile.lastIndexOf('/')) + '/' + fileName :
+              fileName;
+
+            onCreateFile(path.startsWith('/') ? path.substring(1) : path, base64Content);
+          };
+          reader.readAsDataURL(blob);
+          e.preventDefault();
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [activeFile, onCreateFile]);
 
   const handleRootCreateSubmit = () => {
     if (rootCreateName) {
@@ -266,7 +383,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-950 border-r border-gray-800 w-64 flex-shrink-0 select-none">
+    <div className="flex flex-col h-full bg-gray-950 border-r border-gray-800 w-64 shrink-0 select-none">
       <div className="p-3 border-b border-gray-800 flex items-center justify-between bg-gray-900/50">
         <span className="text-xs font-semibold text-gray-400 tracking-wider uppercase pl-2">Files</span>
         <div className="flex items-center gap-1">
@@ -283,6 +400,13 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             title="New Folder"
           >
             <Folder size={14} className="scale-90" />
+          </button>
+          <button
+            onClick={onRefresh}
+            className="p-1.5 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors"
+            title="Refresh Explorer"
+          >
+            <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
           </button>
         </div>
       </div>
@@ -338,7 +462,10 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                   onCreateDir={onCreateDirectory}
                   onDelete={onDeleteFile}
                   onRename={onRename}
+                  onRefresh={onRefresh}
                   defaultExpanded={false}
+                  onDragStart={handleDragStart}
+                  onDrop={handleDrop}
                 />
               ))}
           </div>
