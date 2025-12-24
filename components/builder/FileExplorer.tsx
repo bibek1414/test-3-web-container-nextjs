@@ -356,12 +356,10 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           reader.onload = (event) => {
             const base64Content = event.target?.result as string;
             const timestamp = new Date().getTime();
-            const fileName = `pasted_image_${timestamp}.png`;
-            const path = activeFile ?
-              activeFile.substring(0, activeFile.lastIndexOf('/')) + '/' + fileName :
-              fileName;
+            // Default to public folder for pasted images
+            const fileName = `public/pasted_image_${timestamp}.png`;
 
-            onCreateFile(path.startsWith('/') ? path.substring(1) : path, base64Content);
+            onCreateFile(fileName, base64Content);
           };
           reader.readAsDataURL(blob);
           e.preventDefault();
