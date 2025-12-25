@@ -48,7 +48,6 @@ export default function BuilderPage() {
     cloneRepo,
     pushChanges,
     uploadFile,
-    installDependencies,
     isFileLoading,
     isTreeLoading,
     isPreFetching
@@ -464,7 +463,6 @@ export default function BuilderPage() {
           cloneRepo(repoUrl);
           // Trigger dependency installation after a short delay to ensure clone started
           setTimeout(() => {
-            installDependencies();
             setIsCloning(false);
             setIsGithubModalOpen(false);
           }, 3000);
@@ -473,7 +471,6 @@ export default function BuilderPage() {
           setIsCloning(true);
           recloneProject();
           setTimeout(() => {
-            installDependencies();
             setIsCloning(false);
             setIsGithubModalOpen(false);
           }, 3000);

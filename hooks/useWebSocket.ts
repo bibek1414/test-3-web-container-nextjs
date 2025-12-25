@@ -353,10 +353,7 @@ export const useWebSocket = (workspaceId: string) => {
     return send({ action: "github_push", message });
   }, [send]);
 
-  const installDependencies = useCallback(() => {
-    console.log(`📦 Installing project dependencies`);
-    return send({ action: "install_project" });
-  }, [send]);
+
 
   const uploadFile = useCallback((path: string, content: string) => {
     console.log(`📤 Uploading file: ${path} (${content.length} chars)`);
@@ -398,7 +395,6 @@ export const useWebSocket = (workspaceId: string) => {
     cloneRepo,
     pushChanges,
     uploadFile,
-    installDependencies,
     refreshFileTree,
     reconnect,
     isFileLoading,
