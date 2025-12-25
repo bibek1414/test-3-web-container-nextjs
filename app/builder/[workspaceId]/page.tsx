@@ -283,6 +283,7 @@ export default function BuilderPage() {
           onCreateDirectory={createDirectory}
           onDeleteFile={deleteFile}
           onRename={renameFile}
+          onRefresh={refreshFileTree}
           onUploadFile={uploadFile}
           isLoading={isTreeLoading}
         />
