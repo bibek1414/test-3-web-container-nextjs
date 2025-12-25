@@ -215,6 +215,13 @@ export const useWebSocket = (workspaceId: string) => {
               setFileTree(msg.tree.items);
             }
             break;
+            case "tree":
+            console.log(`📁 tree: ${msg.path}`);
+            // Update tree if provided
+            if (msg.tree?.items) {
+              setFileTree(msg.tree.items);
+            }
+            break;
 
           case "notification":
             console.log(`📢 Notification: ${msg.message}`);

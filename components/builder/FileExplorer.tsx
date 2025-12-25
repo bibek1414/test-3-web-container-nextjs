@@ -330,10 +330,10 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           const fileName = file.name;
           const newPath = targetPath ? `${targetPath}/${fileName}` : fileName;
 
-          if (isImage) {
-            onCreateFile(newPath, content);
+          if (isImage && onUploadFile) {
+            onUploadFile(newPath, content);
           } else {
-            onCreateFile(newPath);
+            onCreateFile(newPath, content);
           }
         };
 
@@ -347,6 +347,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     }
 
     const sourcePath = e.dataTransfer.getData('text/plain') || dragItem;
+
 
     if (sourcePath && sourcePath !== targetPath) {
       // Prevent dropping a folder into its own subfolder
@@ -380,7 +381,11 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             // Default to public folder for pasted images
             const fileName = `public/pasted_image_${timestamp}.png`;
 
-            onCreateFile(fileName, base64Content);
+            if (onUploadFile) {
+              onUploadFile(fileName, base64Content);
+            } else {
+              onCreateFile(fileName, base64Content);
+            }
           };
           reader.readAsDataURL(blob);
           e.preventDefault();
@@ -390,7 +395,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [activeFile, onCreateFile]);
+  }, [activeFile, onCreateFile, onUploadFile]);
 
   const handleRootCreateSubmit = () => {
     if (rootCreateName) {
