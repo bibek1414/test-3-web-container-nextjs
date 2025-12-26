@@ -138,7 +138,8 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
 
 
   // Error detection regex and logic
-  const errorRegex = useRef(/(error:|exception:|failed:|fatal:|syntax failure|build failed|err_|node_modules\/.*\.js:\d+)/i);
+  // Updated to include Next.js specific errors like "Module not found" and looser matching
+  const errorRegex = useRef(/(error:|exception:|failed:|fatal:|syntax failure|build failed|err_|node_modules\/.*\.js:\d+|module not found|cannot find module|uncaught|referenced by the type)/i);
   const errorBuffer = useRef<string>("");
   const errorTimeout = useRef<NodeJS.Timeout | null>(null);
 

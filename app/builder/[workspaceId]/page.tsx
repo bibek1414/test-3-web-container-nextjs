@@ -74,7 +74,7 @@ export default function BuilderPage() {
   const [terminalError, setTerminalError] = useState<string | null>(null);
 
   const handleTerminalError = (error: string) => {
-    // console.log("Terminal Error Detected:", error);
+    console.log("Terminal Error Detected:", error);
     setTerminalError(error);
   };
 
