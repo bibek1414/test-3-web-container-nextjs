@@ -16,12 +16,14 @@ interface CodePreviewProps {
     serverUrl: string;
   };
   isProduction?: boolean;
+  onTerminalError?: (error: string) => void;
 }
 
 export const CodePreview: React.FC<CodePreviewProps> = ({
   files,
   webContainerState,
   isProduction = false,
+  onTerminalError,
 }) => {
   const {
     instance,
@@ -63,6 +65,7 @@ export const CodePreview: React.FC<CodePreviewProps> = ({
         isProduction={isProduction}
         isSetupComplete={isSetupComplete}
         setIsSetupComplete={setIsSetupComplete}
+        onTerminalError={onTerminalError}
       />
     </div>
   );

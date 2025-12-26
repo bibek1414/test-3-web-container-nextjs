@@ -71,6 +71,12 @@ export default function BuilderPage() {
   const [commitMessage, setCommitMessage] = useState("Update from Builder IDE");
   const [copied, setCopied] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
+  const [terminalError, setTerminalError] = useState<string | null>(null);
+
+  const handleTerminalError = (error: string) => {
+    // console.log("Terminal Error Detected:", error);
+    setTerminalError(error);
+  };
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -266,6 +272,8 @@ export default function BuilderPage() {
               });
               refreshFileTree();
             }}
+            terminalError={terminalError || undefined}
+            onClearError={() => setTerminalError(null)}
           />
         </div>
       )}
@@ -440,6 +448,7 @@ export default function BuilderPage() {
               files={filesMap}
               activeFile={activeFile || ''}
               webContainerState={webContainerState}
+              onTerminalError={handleTerminalError}
             />
           </div>
         </div>

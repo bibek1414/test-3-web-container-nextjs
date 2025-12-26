@@ -21,6 +21,7 @@ interface TerminalProps {
   onClose?: () => void;
   onMinimize?: (minimized: boolean) => void;
   isMinimized?: boolean;
+  onError?: (error: string) => void;
 }
 
 // Define the methods that will be exposed through the ref
@@ -30,13 +31,64 @@ export interface TerminalRef {
   focusTerminal: () => void;
 }
 
-const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({ 
+// Move to top level
+const terminalThemes = {
+  dark: {
+    background: "#09090B",
+    foreground: "#FAFAFA",
+    cursor: "#FAFAFA",
+    cursorAccent: "#09090B",
+    selection: "#27272A",
+    black: "#18181B",
+    red: "#EF4444",
+    green: "#22C55E",
+    yellow: "#EAB308",
+    blue: "#3B82F6",
+    magenta: "#A855F7",
+    cyan: "#06B6D4",
+    white: "#F4F4F5",
+    brightBlack: "#3F3F46",
+    brightRed: "#F87171",
+    brightGreen: "#4ADE80",
+    brightYellow: "#FDE047",
+    brightBlue: "#60A5FA",
+    brightMagenta: "#C084FC",
+    brightCyan: "#22D3EE",
+    brightWhite: "#FFFFFF",
+  },
+  light: {
+    background: "#FFFFFF",
+    foreground: "#18181B",
+    cursor: "#18181B",
+    cursorAccent: "#FFFFFF",
+    selection: "#E4E4E7",
+    black: "#18181B",
+    red: "#DC2626",
+    green: "#16A34A",
+    yellow: "#CA8A04",
+    blue: "#2563EB",
+    magenta: "#9333EA",
+    cyan: "#0891B2",
+    white: "#F4F4F5",
+    brightBlack: "#71717A",
+    brightRed: "#EF4444",
+    brightGreen: "#22C55E",
+    brightYellow: "#EAB308",
+    brightBlue: "#3B82F6",
+    brightMagenta: "#A855F7",
+    brightCyan: "#06B6D4",
+    brightWhite: "#FAFAFA",
+  },
+};
+
+const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
   className,
   theme = "dark",
   webContainerInstance,
   onClose,
   onMinimize,
-  isMinimized: isMinimizedProp = false
+  isMinimized: isMinimizedProp = false,
+  onError
 }, ref) => {
   const terminalRef = useRef<HTMLDivElement>(null);
   const term = useRef<Terminal | null>(null);
@@ -57,7 +109,7 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
     setIsMinimized(newState);
     onMinimize?.(newState);
   };
-  
+
   // Command line state
   const currentLine = useRef<string>("");
   const cursorPosition = useRef<number>(0);
@@ -65,54 +117,7 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
   const historyIndex = useRef<number>(-1);
   const currentProcess = useRef<any>(null);
 
-  const terminalThemes = {
-    dark: {
-      background: "#09090B",
-      foreground: "#FAFAFA",
-      cursor: "#FAFAFA",
-      cursorAccent: "#09090B",
-      selection: "#27272A",
-      black: "#18181B",
-      red: "#EF4444",
-      green: "#22C55E",
-      yellow: "#EAB308",
-      blue: "#3B82F6",
-      magenta: "#A855F7",
-      cyan: "#06B6D4",
-      white: "#F4F4F5",
-      brightBlack: "#3F3F46",
-      brightRed: "#F87171",
-      brightGreen: "#4ADE80",
-      brightYellow: "#FDE047",
-      brightBlue: "#60A5FA",
-      brightMagenta: "#C084FC",
-      brightCyan: "#22D3EE",
-      brightWhite: "#FFFFFF",
-    },
-    light: {
-      background: "#FFFFFF",
-      foreground: "#18181B",
-      cursor: "#18181B",
-      cursorAccent: "#FFFFFF",
-      selection: "#E4E4E7",
-      black: "#18181B",
-      red: "#DC2626",
-      green: "#16A34A",
-      yellow: "#CA8A04",
-      blue: "#2563EB",
-      magenta: "#9333EA",
-      cyan: "#0891B2",
-      white: "#F4F4F5",
-      brightBlack: "#71717A",
-      brightRed: "#EF4444",
-      brightGreen: "#22C55E",
-      brightYellow: "#EAB308",
-      brightBlue: "#3B82F6",
-      brightMagenta: "#A855F7",
-      brightCyan: "#06B6D4",
-      brightWhite: "#FAFAFA",
-    },
-  };
+
 
   const writePrompt = useCallback(() => {
     if (term.current) {
@@ -130,11 +135,43 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
     }
   }, [writePrompt]);
 
+
+
+  // Error detection regex and logic
+  const errorRegex = useRef(/(error:|exception:|failed:|fatal:|syntax failure|build failed|err_|node_modules\/.*\.js:\d+)/i);
+  const errorBuffer = useRef<string>("");
+  const errorTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const scanForErrors = useCallback((text: string) => {
+    // Simple buffer to catch split errors (keep last 2000 chars)
+    errorBuffer.current += text;
+    if (errorBuffer.current.length > 2000) {
+      errorBuffer.current = errorBuffer.current.slice(-1000);
+    }
+
+    // Check recent text or buffer
+    if (errorRegex.current.test(text) || errorRegex.current.test(errorBuffer.current)) {
+      // Debounce error reporting
+      if (errorTimeout.current) clearTimeout(errorTimeout.current);
+      errorTimeout.current = setTimeout(() => {
+        // Find the error line/context - simple approach: send the buffer
+        if (onError) {
+          onError(errorBuffer.current);
+          // Clear buffer after reporting to avoid duplicate reports? 
+          // Maybe not, as continuous errors might be related.
+          // But we want to avoid spamming.
+          errorBuffer.current = "";
+        }
+      }, 1000);
+    }
+  }, [onError]);
+
   // Expose methods through ref
   useImperativeHandle(ref, () => ({
     writeToTerminal: (data: string) => {
       if (term.current) {
         term.current.write(data);
+        scanForErrors(data);
       }
     },
     clearTerminal: () => {
@@ -198,6 +235,7 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
         write(data) {
           if (term.current) {
             term.current.write(data);
+            scanForErrors(data);
           }
         },
       }));
@@ -226,19 +264,19 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
       case '\r': // Enter
         executeCommand(currentLine.current);
         break;
-        
+
       case '\u007F': // Backspace
         if (cursorPosition.current > 0) {
-          currentLine.current = 
-            currentLine.current.slice(0, cursorPosition.current - 1) + 
+          currentLine.current =
+            currentLine.current.slice(0, cursorPosition.current - 1) +
             currentLine.current.slice(cursorPosition.current);
           cursorPosition.current--;
-          
+
           // Update terminal display
           term.current.write('\b \b');
         }
         break;
-        
+
       case '\u0003': // Ctrl+C
         if (currentProcess.current) {
           currentProcess.current.kill();
@@ -247,7 +285,7 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
         term.current.writeln("^C");
         writePrompt();
         break;
-        
+
       case '\u001b[A': // Up arrow
         if (commandHistory.current.length > 0) {
           if (historyIndex.current === -1) {
@@ -255,17 +293,17 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
           } else if (historyIndex.current > 0) {
             historyIndex.current--;
           }
-          
+
           // Clear current line and write history command
           const historyCommand = commandHistory.current[historyIndex.current];
-           // Simple clear line strategy: CR then spaces then CR
+          // Simple clear line strategy: CR then spaces then CR
           term.current.write('\r$ ' + ' '.repeat(currentLine.current.length) + '\r$ ');
           term.current.write(historyCommand);
           currentLine.current = historyCommand;
           cursorPosition.current = historyCommand.length;
         }
         break;
-        
+
       case '\u001b[B': // Down arrow
         if (historyIndex.current !== -1) {
           if (historyIndex.current < commandHistory.current.length - 1) {
@@ -283,14 +321,14 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
           }
         }
         break;
-        
+
       default:
         // Regular character input
         // Simple printable check
         if (data.length === 1 && data.charCodeAt(0) >= 32) {
-          currentLine.current = 
-            currentLine.current.slice(0, cursorPosition.current) + 
-            data + 
+          currentLine.current =
+            currentLine.current.slice(0, cursorPosition.current) +
+            data +
             currentLine.current.slice(cursorPosition.current);
           cursorPosition.current++;
           term.current.write(data);
@@ -325,7 +363,7 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
     terminal.loadAddon(searchAddonInstance);
 
     terminal.open(terminalRef.current);
-    
+
     fitAddon.current = fitAddonInstance;
     searchAddon.current = searchAddonInstance;
     term.current = terminal;
@@ -378,7 +416,7 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
     if (term.current) {
       const buffer = term.current.buffer.active;
       let content = "";
-      
+
       for (let i = 0; i < buffer.length; i++) {
         const line = buffer.getLine(i);
         if (line) {
@@ -401,6 +439,12 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
       searchAddon.current.findNext(termStr);
     }
   }, []);
+
+  useEffect(() => {
+    if (webContainerInstance && term.current && !isConnected) {
+      connectToWebContainer();
+    }
+  }, [webContainerInstance, connectToWebContainer, isConnected, theme]);
 
   useEffect(() => {
     initializeTerminal();
@@ -430,11 +474,7 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
     };
   }, [initializeTerminal]);
 
-  useEffect(() => {
-    if (webContainerInstance && term.current && !isConnected) {
-      connectToWebContainer();
-    }
-  }, [webContainerInstance, connectToWebContainer, isConnected]);
+
 
   return (
     <div className={cn("flex flex-col bg-background border rounded-lg overflow-hidden transition-all duration-200", isMinimized ? "h-auto" : "h-full", className)}>
@@ -469,7 +509,7 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
               />
             </div>
           )}
-          
+
           <Button
             variant="ghost"
             size="sm"
@@ -478,7 +518,7 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
           >
             <Search className="h-3 w-3" />
           </Button>
-          
+
           <Button
             variant="ghost"
             size="sm"
@@ -487,7 +527,7 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
           >
             <Copy className="h-3 w-3" />
           </Button>
-          
+
           <Button
             variant="ghost"
             size="sm"
@@ -496,7 +536,7 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
           >
             <Download className="h-3 w-3" />
           </Button>
-          
+
           <Button
             variant="ghost"
             size="sm"
@@ -530,10 +570,10 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
 
       {/* Terminal Content */}
       <div className={cn("flex-1 relative bg-[#09090B]", isMinimized && "hidden")}>
-        <div 
-          ref={terminalRef} 
+        <div
+          ref={terminalRef}
           className="absolute inset-0 p-2"
-          style={{ 
+          style={{
             background: terminalThemes[theme].background,
           }}
         />

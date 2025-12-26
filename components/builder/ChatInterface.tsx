@@ -14,9 +14,16 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://nepdora.ba
 interface ChatInterfaceProps {
   workspaceId: string;
   onTaskCompleted?: (files: string[]) => void;
+  terminalError?: string;
+  onClearError?: () => void;
 }
 
-export const ChatInterface: React.FC<ChatInterfaceProps> = ({ workspaceId, onTaskCompleted }) => {
+export const ChatInterface: React.FC<ChatInterfaceProps> = ({
+  workspaceId,
+  onTaskCompleted,
+  terminalError,
+  onClearError
+}) => {
   const [activeTab, setActiveTab] = useState<'chat'>('chat');
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -96,14 +103,22 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ workspaceId, onTas
     },
   });
 
-  const sendMessage = async () => {
-    if (!input.trim() || mutation.isPending) return;
+  const sendMessage = async (overrideInput?: string) => {
+    const textToSend = overrideInput || input;
+    if (!textToSend.trim() || mutation.isPending) return;
 
-    const userMessage = input.trim();
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setMessages((prev) => [...prev, { role: "user", content: textToSend }]);
     setInput("");
-    
-    mutation.mutate(userMessage);
+
+    mutation.mutate(textToSend);
+  };
+
+  const handleFixIssue = () => {
+    if (terminalError) {
+      const fixPrompt = `I encountered the following error in the terminal. Please fix it:\n\n${terminalError}`;
+      sendMessage(fixPrompt);
+      if (onClearError) onClearError();
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -119,15 +134,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ workspaceId, onTas
       <div className="flex border-b border-[#333] bg-[#37373d]">
         <button
           onClick={() => setActiveTab('chat')}
-          className={`flex-1 p-2 text-xs font-bold ${
-            activeTab === 'chat' 
-              ? 'text-white border-b-2 border-[#007acc] bg-[#252526]' 
+          className={`flex-1 p-2 text-xs font-bold ${activeTab === 'chat'
+              ? 'text-white border-b-2 border-[#007acc] bg-[#252526]'
               : 'text-[#cccccc] hover:bg-[#2a2d2e]'
-          }`}
+            }`}
         >
           🤖 AI Chat
         </button>
-      
+
       </div>
 
       {activeTab === 'chat' ? (
@@ -136,11 +150,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ workspaceId, onTas
             {messages.map((msg, index) => (
               <div
                 key={index}
-                className={`p-2 rounded-md text-[13px] max-w-[90%] ${
-                  msg.role === "user"
+                className={`p-2 rounded-md text-[13px] max-w-[90%] ${msg.role === "user"
                     ? "bg-[#007acc] text-white self-end ml-[30px]"
                     : "bg-[#2a2d2e] text-[#cccccc] self-start mr-[30px]"
-                }`}
+                  }`}
               >
                 <div
                   dangerouslySetInnerHTML={{
@@ -161,6 +174,20 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ workspaceId, onTas
             )}
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Fix Issues Button */}
+          {terminalError && (
+            <div className="px-2.5 pb-2">
+              <button
+                onClick={handleFixIssue}
+                className="w-full bg-red-600/20 border border-red-600/50 text-red-200 p-2 rounded-sm text-xs flex items-center justify-center gap-2 hover:bg-red-600/30 transition-colors animate-in fade-in slide-in-from-bottom-2"
+              >
+                <span>⚠️ Terminal Error Detected</span>
+                <span className="font-bold underline">Fix Issues</span>
+              </button>
+            </div>
+          )}
+
           <div className="p-2.5 border-t border-[#333]">
             <textarea
               value={input}
@@ -170,11 +197,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ workspaceId, onTas
               className="w-full bg-[#3c3c3c] border border-[#555] text-white p-2 rounded-sm text-[13px] min-h-[60px] resize-y font-sans focus:outline-none focus:border-[#007acc]"
             />
             <button
-              onClick={sendMessage}
+              onClick={() => sendMessage()}
               disabled={mutation.isPending}
-              className={`w-full mt-2 bg-[#007acc] text-white border-none p-1.5 rounded-sm cursor-pointer text-xs hover:opacity-90 ${
-                mutation.isPending ? "opacity-50 cursor-not-allowed" : ""
-              }`}
+              className={`w-full mt-2 bg-[#007acc] text-white border-none p-1.5 rounded-sm cursor-pointer text-xs hover:opacity-90 ${mutation.isPending ? "opacity-50 cursor-not-allowed" : ""
+                }`}
             >
               Send to AI
             </button>

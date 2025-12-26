@@ -20,6 +20,7 @@ interface WebContainerPreviewProps {
   isProduction?: boolean;
   isSetupComplete: boolean;
   setIsSetupComplete: (complete: boolean) => void;
+  onTerminalError?: (error: string) => void;
 }
 
 const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
@@ -29,6 +30,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
   isProduction = false,
   isSetupComplete,
   setIsSetupComplete,
+  onTerminalError,
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const totalSteps = isProduction ? 5 : 4;
@@ -366,6 +368,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
                 webContainerInstance={webContainerInstance}
                 theme="dark"
                 className="h-full"
+                onError={onTerminalError}
               />
             </Suspense>
           </div>
@@ -433,6 +436,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
                   onClose={() => setTerminalVisibility("closed")}
                   onMinimize={(min) => setTerminalVisibility(min ? "minimized" : "visible")}
                   isMinimized={terminalVisibility === "minimized"}
+                  onError={onTerminalError}
                 />
               </Suspense>
             </div>
