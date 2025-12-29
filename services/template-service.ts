@@ -1,5 +1,5 @@
 import { siteConfig } from "@/config/site";
-import { TemplateAccount, UseTemplatePayload } from "@/types/template";
+import { TemplateAccount, UseTemplatePayload, TemplateListResponse } from "@/types/template";
 
 const API_BASE_URL = siteConfig.apiUrl;
 const getCookie = (name: string) => {
@@ -13,7 +13,7 @@ const getCookie = (name: string) => {
 export const templateService = {
   getTemplates: async (): Promise<TemplateAccount[]> => {
     const token = getCookie("authToken");
-    const response = await fetch(`${API_BASE_URL}/api/templates/`, {
+    const response = await fetch(`${API_BASE_URL}/api/template-tenants/`, {
       headers: {
         Authorization: token ? `Bearer ${token}` : "",
       },
@@ -23,7 +23,8 @@ export const templateService = {
       throw new Error("Failed to fetch templates");
     }
 
-    return response.json();
+    const data: TemplateListResponse = await response.json();
+    return data.results;
   },
 
   useTemplate: async (payload: UseTemplatePayload): Promise<unknown> => {

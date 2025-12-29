@@ -60,10 +60,10 @@ export function TemplateSelector() {
                     >
                         {/* Image Container */}
                         <div className="relative h-64 w-full overflow-hidden bg-slate-100">
-                            {template.thumbnail_image ? (
+                            {template.template_image ? (
                                 <Image
-                                    src={template.thumbnail_image.startsWith('http') ? template.thumbnail_image : `${siteConfig.apiUrl}${template.thumbnail_image}`}
-                                    alt={template.alt_description || template.name}
+                                    src={template.template_image.startsWith('http') ? template.template_image : `${siteConfig.apiUrl}${template.template_image}`}
+                                    alt={template.name}
                                     fill
                                     className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
                                 />
@@ -87,11 +87,16 @@ export function TemplateSelector() {
 
                             <div className="flex items-center gap-3 mt-auto">
                                 <a
-                                    href={template.preview_url}
-                                    target="_blank"
+                                    href={template.preview_url || "#"}
+                                    target={template.preview_url ? "_blank" : "_self"}
                                     rel="noopener noreferrer"
-                                    className="flex-1 inline-flex items-center justify-center px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 hover:border-slate-300 transition-colors"
-                                    onClick={(e) => e.stopPropagation()}
+                                    className={`flex-1 inline-flex items-center justify-center px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-medium transition-colors ${!template.preview_url ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-50 hover:border-slate-300"}`}
+                                    onClick={(e) => {
+                                        if (!template.preview_url) {
+                                            e.preventDefault();
+                                        }
+                                        e.stopPropagation();
+                                    }}
                                 >
                                     Preview
                                 </a>
