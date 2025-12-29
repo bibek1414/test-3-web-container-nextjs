@@ -82,18 +82,18 @@ export function TemplateSelector() {
                                 {template.name}
                             </h3>
                             <p className="text-slate-600 mb-6 grow">
-                                {template.alt_description || "No description provided."}
+                                {template.description || "No description provided."}
                             </p>
 
                             <div className="flex items-center gap-3 mt-auto">
                                 <a
-                                    href={template.github_url}
+                                    href={template.preview_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex-1 inline-flex items-center justify-center px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 hover:border-slate-300 transition-colors"
                                     onClick={(e) => e.stopPropagation()}
                                 >
-                                    <span className="mr-2">👁️</span> GitHub Repo
+                                    Preview
                                 </a>
 
                                 <button
@@ -111,7 +111,7 @@ export function TemplateSelector() {
                                         </>
                                     ) : (
                                         <>
-                                            <span className="mr-2">🚀</span> Use Template
+                                            Use Template
                                         </>
                                     )}
                                 </button>
@@ -126,7 +126,7 @@ export function TemplateSelector() {
                 <button
                     onClick={() => handleUseTemplate()}
                     disabled={isUsingTemplate}
-                    className="text-slate-500 hover:text-blue-600 text-sm font-medium transition-colors flex items-center gap-2 group disabled:opacity-50"
+                    className="text-slate-500 hover:text-blue-600 text-sm font-medium transition-colors flex items-center gap-2 group disabled:opacity-50 cursor-pointer"
                 >
                     Or continue without a template
                     <span className="group-hover:translate-x-1 transition-transform">→</span>
