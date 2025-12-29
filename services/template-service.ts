@@ -1,0 +1,50 @@
+import { siteConfig } from "@/config/site";
+import { TemplateAccount, UseTemplatePayload } from "@/types/template";
+
+const API_BASE_URL = siteConfig.apiUrl;
+const getCookie = (name: string) => {
+  if (typeof document === "undefined") return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(";").shift();
+  return null;
+};
+
+export const templateService = {
+  getTemplates: async (): Promise<TemplateAccount[]> => {
+    const token = getCookie("authToken");
+    const response = await fetch(`${API_BASE_URL}/api/templates/`, {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch templates");
+    }
+
+    return response.json();
+  },
+
+  useTemplate: async (payload: UseTemplatePayload): Promise<unknown> => {
+    const token = getCookie("authToken");
+    const response = await fetch(`${API_BASE_URL}/api/templates/use/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token ? `Bearer ${token}` : "",
+      },
+      body: JSON.stringify({
+        ...payload,
+        token: token, // User requested to pass token in the body as well
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to use template");
+    }
+
+    return response.json();
+  },
+};
