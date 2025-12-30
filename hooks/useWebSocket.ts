@@ -236,7 +236,7 @@ export const useWebSocket = (workspaceId: string) => {
           case "workspace_deleted":
             console.log("🗑️ Workspace deleted");
             alert("Workspace has been deleted!");
-            window.location.href = "/";
+            window.location.href = "https://nepdora.com/admin";
             break;
 
           case "error":
