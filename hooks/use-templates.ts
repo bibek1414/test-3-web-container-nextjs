@@ -19,3 +19,14 @@ export const useUseTemplate = () => {
     },
   });
 };
+
+export const useUseRealData = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => templateService.useRealData(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["templates"] });
+    },
+  });
+};

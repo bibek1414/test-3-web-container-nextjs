@@ -9,7 +9,7 @@ import { siteConfig } from "@/config/site";
 
 export function TemplateSelector() {
     const router = useRouter();
-    const workspaceId = "nextjs-web-container";
+    const workspaceId = "luminous-glow";
 
     const { data: templates, isLoading, error } = useTemplates();
     const { mutate: performUseTemplate, isPending: isUsingTemplate } = useUseTemplate();

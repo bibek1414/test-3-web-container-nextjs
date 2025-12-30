@@ -45,14 +45,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   const mutation = useMutation({
     mutationFn: async (userMessage: string) => {
-      const response = await fetch(`${API_BASE_URL}/ai-builder/run/`, {
+      const response = await fetch(`${API_BASE_URL}/web-builder/build/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           prompt: userMessage,
-          project_path: `workspaces/${workspaceId}`,
+          tenant_name: "luminous-glow",
         }),
       });
       if (!response.ok) {
@@ -135,8 +135,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <button
           onClick={() => setActiveTab('chat')}
           className={`flex-1 p-2 text-xs font-bold ${activeTab === 'chat'
-              ? 'text-white border-b-2 border-[#007acc] bg-[#252526]'
-              : 'text-[#cccccc] hover:bg-[#2a2d2e]'
+            ? 'text-white border-b-2 border-[#007acc] bg-[#252526]'
+            : 'text-[#cccccc] hover:bg-[#2a2d2e]'
             }`}
         >
           🤖 AI Chat
@@ -151,8 +151,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               <div
                 key={index}
                 className={`p-2 rounded-md text-[13px] max-w-[90%] ${msg.role === "user"
-                    ? "bg-[#007acc] text-white self-end ml-[30px]"
-                    : "bg-[#2a2d2e] text-[#cccccc] self-start mr-[30px]"
+                  ? "bg-[#007acc] text-white self-end ml-[30px]"
+                  : "bg-[#2a2d2e] text-[#cccccc] self-start mr-[30px]"
                   }`}
               >
                 <div

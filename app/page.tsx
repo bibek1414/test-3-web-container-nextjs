@@ -1,4 +1,6 @@
 import { TemplateSelector } from "@/components/TemplateSelector";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -18,8 +20,11 @@ export default function Home() {
             Our AI-powered builder handles the rest.
           </p>
         </header>
-
+        <Link href="/builder/luminous-glow">
+          <Button>Nextjs Web Container</Button>
+        </Link>
         <TemplateSelector />
+
       </div>
     </main>
   );

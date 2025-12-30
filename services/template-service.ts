@@ -48,4 +48,23 @@ export const templateService = {
 
     return response.json();
   },
+
+  useRealData: async (): Promise<unknown> => {
+    const token = getCookie("authToken");
+    const response = await fetch(`${API_BASE_URL}/builder/use-data/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token ? `Bearer ${token}` : "",
+      },
+      
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to use real data");
+    }
+
+    return response.json();
+  },
 };

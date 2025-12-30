@@ -11,7 +11,8 @@ import {
   GitBranch,
   ExternalLink,
   Copy,
-  Check
+  Check,
+  Database
 } from 'lucide-react';
 
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -22,6 +23,7 @@ import { ChatInterface } from '@/components/builder/ChatInterface';
 import { ImportModal } from '@/components/builder/ImportModal';
 import { GitHubModal } from '@/components/builder/GitHubModal';
 import { useWebContainer } from '@/hooks/useWebContainer';
+import { useUseRealData } from '@/hooks/use-templates';
 import { cn } from '@/lib/utils';
 import { ViewMode, FileNode } from '@/types';
 
@@ -72,6 +74,19 @@ export default function BuilderPage() {
   const [copied, setCopied] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
   const [terminalError, setTerminalError] = useState<string | null>(null);
+
+  const { mutate: mutateRealData, isPending: isUsingRealData } = useUseRealData();
+
+  const handleUseRealData = () => {
+    mutateRealData(undefined, {
+      onSuccess: () => {
+        alert("Success: Use real data request sent!");
+      },
+      onError: (error) => {
+        alert(`Error: ${error instanceof Error ? error.message : "Failed to use real data"}`);
+      }
+    });
+  };
 
   const handleTerminalError = (error: string) => {
     console.log("Terminal Error Detected:", error);
@@ -384,6 +399,14 @@ export default function BuilderPage() {
             >
               <GitBranch size={14} />
               GitHub
+            </button>
+            <button
+              onClick={handleUseRealData}
+              disabled={isUsingRealData}
+              className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-md transition-colors shadow-sm shadow-purple-900/20 disabled:opacity-50"
+            >
+              <Database size={14} className={isUsingRealData ? "animate-spin" : ""} />
+              {isUsingRealData ? "Processing..." : "Real Data"}
             </button>
             <button
               onClick={() => setIsImportModalOpen(true)}
