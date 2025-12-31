@@ -2,6 +2,8 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { getSubDomain } from "@/lib/auth-client";
+
 
 interface ChatMessage {
   role: "user" | "ai";
@@ -19,7 +21,6 @@ interface ChatInterfaceProps {
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
-  workspaceId,
   onTaskCompleted,
   terminalError,
   onClearError
@@ -33,6 +34,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     },
   ]);
   const [input, setInput] = useState("");
+  const [tenantName] = useState<string>(() => getSubDomain() || "luminous-glow");
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -43,6 +46,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     scrollToBottom();
   }, [messages, activeTab]);
 
+
   const mutation = useMutation({
     mutationFn: async (userMessage: string) => {
       const response = await fetch(`${API_BASE_URL}/web-builder/build/`, {
@@ -52,7 +56,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         },
         body: JSON.stringify({
           prompt: userMessage,
-          tenant_name: "luminous-glow",
+          tenant_name: tenantName,
         }),
       });
       if (!response.ok) {

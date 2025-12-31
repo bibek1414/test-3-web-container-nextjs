@@ -1,14 +1,10 @@
 import { siteConfig } from "@/config/site";
 import { TemplateAccount, UseTemplatePayload, TemplateListResponse } from "@/types/template";
 
+import { getCookie } from "@/lib/auth-client";
+
 const API_BASE_URL = siteConfig.apiUrl;
-const getCookie = (name: string) => {
-  if (typeof document === "undefined") return null;
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()?.split(";").shift();
-  return null;
-};
+
 
 export const templateService = {
   getTemplates: async (): Promise<TemplateAccount[]> => {
