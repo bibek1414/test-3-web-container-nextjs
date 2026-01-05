@@ -11,7 +11,7 @@ interface ChatMessage {
   files_modified?: string[];
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://nepdora.baliyoventures.com";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BUILD_URL || "https://builder-api.nepdora.com";
 
 interface ChatInterfaceProps {
   workspaceId: string;
@@ -49,7 +49,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   const mutation = useMutation({
     mutationFn: async (userMessage: string) => {
-      const response = await fetch(`${API_BASE_URL}/web-builder/build/`, {
+      const response = await fetch(`${API_BASE_URL}/api/web-builder/build/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
