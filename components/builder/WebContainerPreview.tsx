@@ -245,29 +245,60 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
   useEffect(() => {
     if (!webContainerInstance || !isSetupComplete) return;
 
-    // Find changed files
+    // Find changed and deleted files
     const changedFiles: Record<string, string> = {};
-    let hasChanges = false;
+    const deletedFiles: string[] = [];
 
+    // Check for changes and new files
     Object.keys(files).forEach(path => {
       if (files[path] !== prevFilesRef.current[path]) {
         changedFiles[path] = files[path];
-        hasChanges = true;
       }
     });
 
-    if (hasChanges) {
-      console.log("Syncing changes to WebContainer...", Object.keys(changedFiles));
-      Promise.all(Object.entries(changedFiles).map(async ([path, content]) => {
-        try {
-          await webContainerInstance.fs.writeFile(path, content);
-        } catch (e) {
-          console.error(`Failed to write ${path}:`, e);
-        }
-      })).then(() => {
-        console.log("Synced changes");
-        prevFilesRef.current = files;
+    // Check for deletions
+    Object.keys(prevFilesRef.current).forEach(path => {
+      if (!(path in files)) {
+        deletedFiles.push(path);
+      }
+    });
+
+    if (Object.keys(changedFiles).length > 0 || deletedFiles.length > 0) {
+      console.log("Syncing changes to WebContainer...", {
+        updated: Object.keys(changedFiles),
+        deleted: deletedFiles
       });
+
+      const sync = async () => {
+        // Handle deletions
+        for (const path of deletedFiles) {
+          try {
+            await webContainerInstance.fs.rm(path, { recursive: true });
+          } catch (e) {
+            console.error(`Failed to delete ${path}:`, e);
+          }
+        }
+
+        // Handle updates/creations
+        for (const [path, content] of Object.entries(changedFiles)) {
+          try {
+            // Ensure parent directory exists
+            const parts = path.split('/');
+            if (parts.length > 1) {
+              const dirPath = parts.slice(0, -1).join('/');
+              await webContainerInstance.fs.mkdir(dirPath, { recursive: true });
+            }
+            await webContainerInstance.fs.writeFile(path, content);
+          } catch (e) {
+            console.error(`Failed to write ${path}:`, e);
+          }
+        }
+
+        prevFilesRef.current = files;
+        console.log("Synced changes to WebContainer");
+      };
+
+      sync();
     }
   }, [files, webContainerInstance, isSetupComplete]);
 

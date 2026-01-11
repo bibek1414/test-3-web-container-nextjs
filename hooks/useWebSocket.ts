@@ -15,7 +15,7 @@ interface WebSocketMessage {
   new_path?: string;
 }
 
-const normalizePath = (path: string) => path.replace(/^\/+/, '');
+const normalizePath = (path: string) => path.replace(/^\/+/, "");
 
 export const useWebSocket = (workspaceId: string) => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -23,11 +23,21 @@ export const useWebSocket = (workspaceId: string) => {
   const [status, setStatus] = useState<string>("Connecting");
   const [statusColor, setStatusColor] = useState<string>("#FFA500");
   const [currentFileContent, setCurrentFileContent] = useState<string>("");
-  const [lastReceivedFile, setLastReceivedFile] = useState<{ path: string; content: string } | null>(null);
+  const [lastReceivedFile, setLastReceivedFile] = useState<{
+    path: string;
+    content: string;
+  } | null>(null);
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [isFileLoading, setIsFileLoading] = useState<boolean>(false);
   const [isTreeLoading, setIsTreeLoading] = useState<boolean>(true);
   const [silentRequestCount, setSilentRequestCount] = useState<number>(0);
+  const [lastDeletedPath, setLastDeletedPath] = useState<{
+    path: string;
+  } | null>(null);
+  const [lastRenamedFile, setLastRenamedFile] = useState<{
+    oldPath: string;
+    newPath: string;
+  } | null>(null);
   const activeFileRef = useRef<string | null>(null);
   const silentRequests = useRef<Set<string>>(new Set());
 
@@ -35,7 +45,7 @@ export const useWebSocket = (workspaceId: string) => {
   useEffect(() => {
     activeFileRef.current = activeFile;
   }, [activeFile]);
-  
+
   const messageCount = useRef(0);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
@@ -59,7 +69,10 @@ export const useWebSocket = (workspaceId: string) => {
       if (data.content !== undefined) {
         console.log("Content length:", data.content.length, "characters");
         if (data.content.length < 500) {
-          console.log("Content preview:", data.content.substring(0, 200) + '...');
+          console.log(
+            "Content preview:",
+            data.content.substring(0, 200) + "..."
+          );
         }
       }
       if (data.items) console.log("Items count:", data.items.length);
@@ -72,14 +85,16 @@ export const useWebSocket = (workspaceId: string) => {
 
   const connect = useCallback(() => {
     // Construct WebSocket URL
-    const apiUrl = process.env.NEXT_PUBLIC_API_BUILD_URL || "https://builder-api.nepdora.com";
+    const apiUrl =
+      process.env.NEXT_PUBLIC_API_BUILD_URL ||
+      "https://builder-api.nepdora.com";
     let wsUrl = "";
-    
+
     try {
       const url = new URL(apiUrl);
       const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
       wsUrl = `${wsProtocol}//${url.host}/ws/workspace/${workspaceId}/`;
-    } catch(e) {
+    } catch (e) {
       console.error("Invalid API URL:", apiUrl);
     }
 
@@ -103,14 +118,25 @@ export const useWebSocket = (workspaceId: string) => {
     };
 
     ws.onclose = (event) => {
-      console.log(`🔌 WebSocket Closed - Code: ${event.code}, Reason: ${event.reason || "No reason"}`);
+      console.log(
+        `🔌 WebSocket Closed - Code: ${event.code}, Reason: ${
+          event.reason || "No reason"
+        }`
+      );
       setStatus("Disconnected");
       setStatusColor("#888");
-      
+
       if (reconnectAttempts.current < maxReconnectAttempts) {
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
-        console.log(`🔄 Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current + 1}/${maxReconnectAttempts})`);
-        
+        const delay = Math.min(
+          1000 * Math.pow(2, reconnectAttempts.current),
+          30000
+        );
+        console.log(
+          `🔄 Reconnecting in ${delay}ms (attempt ${
+            reconnectAttempts.current + 1
+          }/${maxReconnectAttempts})`
+        );
+
         reconnectTimeout.current = setTimeout(() => {
           reconnectAttempts.current++;
           connectRef.current();
@@ -129,9 +155,14 @@ export const useWebSocket = (workspaceId: string) => {
 
         switch (msg.action) {
           case "tree":
-            console.log(`🌳 File tree received with ${msg.items?.length || 0} root items`);
-            if (msg.items) {
-              setFileTree(msg.items);
+            console.log(
+              `🌳 File tree received with ${
+                msg.items?.length || msg.tree?.items?.length || 0
+              } items`
+            );
+            const items = msg.items || msg.tree?.items;
+            if (items) {
+              setFileTree(items);
               setIsTreeLoading(false);
             }
             break;
@@ -140,14 +171,14 @@ export const useWebSocket = (workspaceId: string) => {
             if (msg.content !== undefined && msg.path) {
               const normPath = normalizePath(msg.path);
               setLastReceivedFile({ path: normPath, content: msg.content });
-              
+
               // Check if this was a silent request
               if (silentRequests.current.has(normPath)) {
                 silentRequests.current.delete(normPath);
-                setSilentRequestCount(prev => Math.max(0, prev - 1));
+                setSilentRequestCount((prev) => Math.max(0, prev - 1));
                 console.log(`🔇 Silent fetch completed for: ${normPath}`);
               } else {
-                // For non-silent requests (explicit user clicks or AI tasks), 
+                // For non-silent requests (explicit user clicks or AI tasks),
                 // always update content and set as active
                 setCurrentFileContent(msg.content);
                 setActiveFile(normPath);
@@ -171,16 +202,25 @@ export const useWebSocket = (workspaceId: string) => {
           case "file_created":
             console.log(`✅ File created: ${msg.path}`);
             // Update tree if provided
-            if (msg.tree?.items) {
-              setFileTree(msg.tree.items);
+            const createdTreeItems = msg.items || msg.tree?.items;
+            if (createdTreeItems) {
+              setFileTree(createdTreeItems);
+            }
+            // If content is provided (e.g. from backend generation), update it
+            if (msg.content !== undefined && msg.path) {
+              setLastReceivedFile({ path: msg.path, content: msg.content });
             }
             break;
 
           case "file_deleted":
             console.log(`🗑️ File deleted: ${msg.path}`);
             // Update tree if provided
-            if (msg.tree?.items) {
-              setFileTree(msg.tree.items);
+            const deletedTreeItems = msg.items || msg.tree?.items;
+            if (deletedTreeItems) {
+              setFileTree(deletedTreeItems);
+            }
+            if (msg.path) {
+              setLastDeletedPath({ path: msg.path });
             }
             // Clear active file if it was deleted
             if (msg.path === activeFileRef.current) {
@@ -192,8 +232,15 @@ export const useWebSocket = (workspaceId: string) => {
           case "file_renamed":
             console.log(`📝 File renamed: ${msg.old_path} -> ${msg.new_path}`);
             // Update tree if provided
-            if (msg.tree?.items) {
-              setFileTree(msg.tree.items);
+            const renamedTreeItems = msg.items || msg.tree?.items;
+            if (renamedTreeItems) {
+              setFileTree(renamedTreeItems);
+            }
+            if (msg.old_path && msg.new_path) {
+              setLastRenamedFile({
+                oldPath: msg.old_path,
+                newPath: msg.new_path,
+              });
             }
             // Update active file if it was renamed
             if (msg.old_path === activeFileRef.current) {
@@ -203,23 +250,17 @@ export const useWebSocket = (workspaceId: string) => {
 
           case "folder_created":
             console.log(`📁 Folder created: ${msg.path}`);
-            // Update tree if provided
-            if (msg.tree?.items) {
-              setFileTree(msg.tree.items);
+            const folderTreeItems = msg.items || msg.tree?.items;
+            if (folderTreeItems) {
+              setFileTree(folderTreeItems);
             }
             break;
-            case "file_uploaded":
+
+          case "file_uploaded":
             console.log(`📁 File uploaded: ${msg.path}`);
-            // Update tree if provided
-            if (msg.tree?.items) {
-              setFileTree(msg.tree.items);
-            }
-            break;
-            case "tree":
-            console.log(`📁 tree: ${msg.path}`);
-            // Update tree if provided
-            if (msg.tree?.items) {
-              setFileTree(msg.tree.items);
+            const uploadedTreeItems = msg.items || msg.tree?.items;
+            if (uploadedTreeItems) {
+              setFileTree(uploadedTreeItems);
             }
             break;
 
@@ -278,92 +319,129 @@ export const useWebSocket = (workspaceId: string) => {
   }, [workspaceId, connect]);
 
   // Send message with error handling
-  const send = useCallback((data: any) => {
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      logSocketMessage("📤 SENT", data);
-      socket.send(JSON.stringify(data));
-      return true;
-    } else {
-      console.error(
-        `⚠️ Cannot send message - WebSocket not connected. State: ${
-          socket?.readyState === WebSocket.CONNECTING ? 'CONNECTING' :
-          socket?.readyState === WebSocket.CLOSING ? 'CLOSING' :
-          socket?.readyState === WebSocket.CLOSED ? 'CLOSED' :
-          'UNKNOWN'
-        }`
-      );
-      return false;
-    }
-  }, [socket, logSocketMessage]);
+  const send = useCallback(
+    (data: any) => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        logSocketMessage("📤 SENT", data);
+        socket.send(JSON.stringify(data));
+        return true;
+      } else {
+        console.error(
+          `⚠️ Cannot send message - WebSocket not connected. State: ${
+            socket?.readyState === WebSocket.CONNECTING
+              ? "CONNECTING"
+              : socket?.readyState === WebSocket.CLOSING
+              ? "CLOSING"
+              : socket?.readyState === WebSocket.CLOSED
+              ? "CLOSED"
+              : "UNKNOWN"
+          }`
+        );
+        return false;
+      }
+    },
+    [socket, logSocketMessage]
+  );
 
   // API Methods
-  const openFile = useCallback((path: string, silent: boolean = false) => {
-    const normPath = normalizePath(path);
-    console.log(`📂 Requesting file: ${normPath}${silent ? ' (silent)' : ''}`);
-    
-    if (!silent) {
-      setIsFileLoading(true);
-    } else {
-      // Idempotent: Only track as silent if not already being fetched silently
-      if (!silentRequests.current.has(normPath)) {
-        silentRequests.current.add(normPath);
-        setSilentRequestCount(prev => prev + 1);
+  const openFile = useCallback(
+    (path: string, silent: boolean = false) => {
+      const normPath = normalizePath(path);
+      console.log(
+        `📂 Requesting file: ${normPath}${silent ? " (silent)" : ""}`
+      );
+
+      if (!silent) {
+        setIsFileLoading(true);
+      } else {
+        // Idempotent: Only track as silent if not already being fetched silently
+        if (!silentRequests.current.has(normPath)) {
+          silentRequests.current.add(normPath);
+          setSilentRequestCount((prev) => prev + 1);
+        }
       }
-    }
-    return send({ action: "open_file", path: normPath });
-  }, [send]);
+      return send({ action: "open_file", path: normPath });
+    },
+    [send]
+  );
 
-  const updateFile = useCallback((path: string, content: string) => {
-    console.log(`✏️ Updating file: ${path} (${content.length} chars)`);
-    return send({ action: "update_file", path, content });
-  }, [send]);
+  const updateFile = useCallback(
+    (path: string, content: string) => {
+      console.log(`✏️ Updating file: ${path} (${content.length} chars)`);
+      return send({ action: "update_file", path, content });
+    },
+    [send]
+  );
 
-  const createFile = useCallback((path: string, content: string = '') => {
-    console.log(`➕ Creating file: ${path}`);
-    return send({ action: "create_file", path, content });
-  }, [send]);
+  const createFile = useCallback(
+    (path: string, content: string = "") => {
+      console.log(`➕ Creating file: ${path}`);
+      return send({ action: "create_file", path, content });
+    },
+    [send]
+  );
 
-  const deleteFile = useCallback((path: string) => {
-    console.log(`🗑️ Deleting file: ${path}`);
-    return send({ action: "delete_file", path });
-  }, [send]);
+  const deleteFile = useCallback(
+    (path: string) => {
+      console.log(`🗑️ Deleting file: ${path}`);
+      return send({ action: "delete_file", path });
+    },
+    [send]
+  );
 
-  const createDirectory = useCallback((path: string) => {
-    console.log(`📁 Creating directory: ${path}`);
-    return send({ action: "create_folder", path });
-  }, [send]);
+  const createDirectory = useCallback(
+    (path: string) => {
+      console.log(`📁 Creating directory: ${path}`);
+      return send({ action: "create_folder", path });
+    },
+    [send]
+  );
 
-  const renameFile = useCallback((oldPath: string, newPath: string) => {
-    console.log(`📝 Renaming: ${oldPath} -> ${newPath}`);
-    return send({ action: "rename_file", old_path: oldPath, new_path: newPath });
-  }, [send]);
+  const renameFile = useCallback(
+    (oldPath: string, newPath: string) => {
+      console.log(`📝 Renaming: ${oldPath} -> ${newPath}`);
+      return send({
+        action: "rename_file",
+        old_path: oldPath,
+        new_path: newPath,
+      });
+    },
+    [send]
+  );
 
   const recloneProject = useCallback(() => {
     console.log(`♻️ Re-cloning project request`);
     return send({ action: "reclone_project" });
   }, [send]);
 
-  const cloneRepo = useCallback((url: string) => {
-    console.log(`🐙 Cloning repository: ${url}`);
-    return send({ action: "github_clone", repo_url: url });
-  }, [send]);
+  const cloneRepo = useCallback(
+    (url: string) => {
+      console.log(`🐙 Cloning repository: ${url}`);
+      return send({ action: "github_clone", repo_url: url });
+    },
+    [send]
+  );
 
-  const pushChanges = useCallback((message: string) => {
-    console.log(`📤 Pushing changes: ${message}`);
-    return send({ action: "github_push", message });
-  }, [send]);
+  const pushChanges = useCallback(
+    (message: string) => {
+      console.log(`📤 Pushing changes: ${message}`);
+      return send({ action: "github_push", message });
+    },
+    [send]
+  );
 
-
-
-  const uploadFile = useCallback((path: string, content: string) => {
-    console.log(`📤 Uploading file: ${path} (${content.length} chars)`);
-    return send({ action: "upload_file", path, content });
-  }, [send]);
+  const uploadFile = useCallback(
+    (path: string, content: string) => {
+      console.log(`📤 Uploading file: ${path} (${content.length} chars)`);
+      return send({ action: "upload_file", path, content });
+    },
+    [send]
+  );
 
   const refreshFileTree = useCallback(() => {
-     console.log("🌲 Requesting file tree refresh");
-     setIsTreeLoading(true);
-     return send({ action: "get_tree" });
+    console.log("🌲 Requesting file tree refresh");
+    setIsTreeLoading(true);
+    return send({ action: "get_tree" });
   }, [send]);
 
   // Manual reconnect function
@@ -385,6 +463,8 @@ export const useWebSocket = (workspaceId: string) => {
     setCurrentFileContent,
     lastReceivedFile,
     activeFile,
+    lastDeletedPath,
+    lastRenamedFile,
     openFile,
     updateFile,
     createFile,

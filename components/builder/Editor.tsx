@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { MonacoEditor } from '../editor/MonacoEditor';
+import { CodeMirrorEditor } from './CodeMirrorEditor';
 import { ImagePreview } from './ImagePreview';
 
 interface EditorProps {
@@ -16,15 +16,14 @@ export const Editor: React.FC<EditorProps> = ({ code, onChange, filename }) => {
   const isImage = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico'].includes(extension);
 
   return (
-    <div className="w-full h-full bg-[#0d1117] overflow-hidden">
+    <div key={filename} className="w-full h-full bg-[#0d1117] overflow-hidden">
       {isImage ? (
         <ImagePreview content={code} filename={filename || 'image'} />
       ) : (
-        <MonacoEditor
-          content={code}
+        <CodeMirrorEditor
+          initialValue={code}
+          fileName={filename || 'file.txt'}
           onChange={onChange}
-          language={extension}
-          theme="modern-dark"
         />
       )}
     </div>
