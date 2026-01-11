@@ -15,7 +15,7 @@ import {
   Copy,
   Check
 } from "lucide-react";
-
+import { siteConfig } from "@/config/site";
 
 interface ChatMessage {
   role: "user" | "ai";
@@ -23,7 +23,7 @@ interface ChatMessage {
   files_modified?: string[];
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BUILD_URL || "https://builder-api.nepdora.com";
+const API_BASE_URL = siteConfig.apiBuildUrl;
 
 interface ChatInterfaceProps {
   workspaceId: string;

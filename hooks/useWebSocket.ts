@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { FileNode } from "../types";
-
+import { siteConfig } from "@/config/site";
 interface WebSocketMessage {
   action: string;
   items?: FileNode[];
@@ -85,9 +85,7 @@ export const useWebSocket = (workspaceId: string) => {
 
   const connect = useCallback(() => {
     // Construct WebSocket URL
-    const apiUrl =
-      process.env.NEXT_PUBLIC_API_BUILD_URL ||
-      "https://builder-api.nepdora.com";
+    const apiUrl = siteConfig.apiBuildUrl || "https://builder-api.nepdora.com";
     let wsUrl = "";
 
     try {
