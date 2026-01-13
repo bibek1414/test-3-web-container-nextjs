@@ -5,8 +5,6 @@ import { useParams } from 'next/navigation';
 import { Allotment } from 'allotment';
 import {
   PanelLeft,
-  Layout,
-  MonitorPlay,
   Code2,
   Download,
   GitBranch,
@@ -17,15 +15,12 @@ import {
 } from 'lucide-react';
 
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { FileExplorer } from '@/components/builder/FileExplorer';
-import { Editor } from '@/components/builder/Editor';
 import { CodePreview } from '@/components/builder/CodePreview';
 import { ChatInterface } from '@/components/builder/ChatInterface';
 import { ImportModal } from '@/components/builder/ImportModal';
 import { GitHubModal } from '@/components/builder/GitHubModal';
 import { useWebContainer } from '@/hooks/useWebContainer';
 import { useUseRealData } from '@/hooks/use-templates';
-import { cn } from '@/lib/utils';
 import { ViewMode, FileNode } from '@/types';
 
 export default function BuilderPage() {
@@ -43,19 +38,13 @@ export default function BuilderPage() {
     updateFile,
     activeFile,
     refreshFileTree,
-    createFile,
-    createDirectory,
-    deleteFile,
-    renameFile,
+
     recloneProject,
     cloneRepo,
     pushChanges,
-    uploadFile,
     lastDeletedPath,
     lastRenamedFile,
-    isFileLoading,
-    isTreeLoading,
-    isPreFetching,
+
     aiStatus
   } = useWebSocket(currentWorkspaceId);
 
@@ -65,9 +54,9 @@ export default function BuilderPage() {
 
   const [filesMap, setFilesMap] = useState<Record<string, string>>({});
 
-  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.SPLIT);
+  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.PREVIEW);
   const [showChat, setShowChat] = useState(true);
-  const [showExplorer, setShowExplorer] = useState(true);
+  const [showExplorer, setShowExplorer] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isGithubModalOpen, setIsGithubModalOpen] = useState(false);
   const [repoUrl, setRepoUrl] = useState("");
@@ -287,22 +276,6 @@ export default function BuilderPage() {
     }
   }, [status, openFile, fileTree]);
 
-  // Handler for editor changes
-  const handleEditorChange = useCallback((newCode: string) => {
-    setLocalFileContent(newCode);
-    if (activeFile) {
-      // Update local map for immediate preview feedback
-      setFilesMap(prev => ({
-        ...prev,
-        [activeFile]: newCode
-      }));
-
-      // Send updates to server
-      updateFile(activeFile, newCode);
-    }
-  }, [activeFile, updateFile]);
-
-
   const handleImport = (name: string, content: string) => {
     // Optimistic update
     setFilesMap(prev => ({ ...prev, [name]: content }));
@@ -337,29 +310,7 @@ export default function BuilderPage() {
 
         <Allotment.Pane>
           <Allotment>
-            <Allotment.Pane
-              visible={showExplorer}
-              minSize={200}
-              preferredSize={250}
-              maxSize={400}
-            >
-              <div className="h-full border-r border-gray-800 bg-[#0d1117]">
-                <FileExplorer
-                  fileTree={fileTree}
-                  activeFile={activeFile || ''}
-                  onSelectFile={(path) => {
-                    openFile(path);
-                  }}
-                  onCreateFile={createFile}
-                  onCreateDirectory={createDirectory}
-                  onDeleteFile={deleteFile}
-                  onRename={renameFile}
-                  onRefresh={refreshFileTree}
-                  onUploadFile={uploadFile}
-                  isLoading={isTreeLoading}
-                />
-              </div>
-            </Allotment.Pane>
+
 
             <Allotment.Pane>
               {/* Main Content */}
@@ -374,13 +325,7 @@ export default function BuilderPage() {
                     >
                       <PanelLeft size={18} />
                     </button>
-                    <button
-                      onClick={() => setShowExplorer(!showExplorer)}
-                      className={`p-1.5 rounded-md hover:bg-gray-800 ${showExplorer ? 'text-blue-400' : 'text-gray-400'}`}
-                      title="Toggle File Explorer"
-                    >
-                      <Layout size={18} className="rotate-90" />
-                    </button>
+
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 rounded-md border border-gray-700/50">
                       <span className={`w-2 h-2 rounded-full ${status === 'Connected' ? 'bg-green-500' : 'bg-red-500'}`} />
                       <span className="text-xs font-medium text-gray-300">{status}</span>
@@ -390,29 +335,7 @@ export default function BuilderPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 bg-gray-800/50 p-1 rounded-lg border border-gray-700/50">
-                    <button
-                      onClick={() => setViewMode(ViewMode.CODE)}
-                      className={`p-1.5 rounded-md transition-all ${viewMode === ViewMode.CODE ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
-                      title="Code Only"
-                    >
-                      <Code2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => setViewMode(ViewMode.SPLIT)}
-                      className={`p-1.5 rounded-md transition-all ${viewMode === ViewMode.SPLIT ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
-                      title="Split View"
-                    >
-                      <Layout size={16} />
-                    </button>
-                    <button
-                      onClick={() => setViewMode(ViewMode.PREVIEW)}
-                      className={`p-1.5 rounded-md transition-all ${viewMode === ViewMode.PREVIEW ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
-                      title="Preview Only"
-                    >
-                      <MonitorPlay size={16} />
-                    </button>
-                  </div>
+
 
                   {webContainerState.serverUrl && (
                     <div className="hidden lg:flex items-center gap-1 bg-gray-900/50 p-1 rounded-md border border-gray-800">
@@ -473,44 +396,7 @@ export default function BuilderPage() {
                 <div className="flex-1 min-h-0 relative">
                   {viewMode === ViewMode.SPLIT ? (
                     <Allotment>
-                      <Allotment.Pane>
-                        <div className="h-full flex flex-col bg-[#0d1117] border-r border-gray-800">
-                          {isTreeLoading || isPreFetching || (isFileLoading && !localFileContent) ? (
-                            <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4 text-center text-gray-400">
-                              <div className="relative">
-                                <Code2 size={48} className="text-blue-500 opacity-20 animate-pulse" />
-                                <div className="absolute inset-0 blur-xl bg-blue-500/10 animate-pulse" />
-                              </div>
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-center gap-2">
-                                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                                </div>
-                                <p className="text-sm font-medium text-gray-200">
-                                  {(isTreeLoading || isPreFetching) ? 'Scanning workspace...' : 'Loading file...'}
-                                </p>
-                                <p className="text-xs text-gray-500 leading-relaxed max-w-xs">
-                                  {(isTreeLoading || isPreFetching)
-                                    ? 'Analyzing project structure and indexing files'
-                                    : 'Fetching file content from workspace'}
-                                </p>
-                              </div>
-                            </div>
-                          ) : activeFile ? (
-                            <Editor
-                              code={localFileContent}
-                              onChange={handleEditorChange}
-                              filename={activeFile || undefined}
-                            />
-                          ) : (
-                            <div className="flex-1 flex flex-col items-center justify-center text-gray-500 gap-2">
-                              <Code2 size={48} className="opacity-20" />
-                              <p>Select a file to edit</p>
-                            </div>
-                          )}
-                        </div>
-                      </Allotment.Pane>
+
                       <Allotment.Pane>
                         <div className="h-full bg-white flex flex-col relative">
                           <CodePreview
@@ -527,29 +413,14 @@ export default function BuilderPage() {
                     // Single View
                     viewMode === ViewMode.CODE ? (
                       <div className="h-full flex flex-col bg-[#0d1117]">
-                        {isTreeLoading || isPreFetching || (isFileLoading && !localFileContent) ? (
-                          <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4 text-center text-gray-400">
-                            {/* Loading skeleton duplicated for single view */}
-                            <div className="relative">
-                              <Code2 size={48} className="text-blue-500 opacity-20 animate-pulse" />
-                              <div className="absolute inset-0 blur-xl bg-blue-500/10 animate-pulse" />
-                            </div>
-                            <p className="text-sm font-medium text-gray-200">
-                              {(isTreeLoading || isPreFetching) ? 'Scanning workspace...' : 'Loading file...'}
-                            </p>
-                          </div>
-                        ) : activeFile ? (
-                          <Editor
-                            code={localFileContent}
-                            onChange={handleEditorChange}
-                            filename={activeFile || undefined}
-                          />
-                        ) : (
-                          <div className="flex-1 flex flex-col items-center justify-center text-gray-500 gap-2">
-                            <Code2 size={48} className="opacity-20" />
-                            <p>Select a file to edit</p>
-                          </div>
+
+                        <div className="flex-1 flex flex-col items-center justify-center text-gray-500 gap-2">
+                          <Code2 size={48} className="opacity-20" />
+                          <p>Select a file to edit</p>
+                        </div>
+                        {/* 
                         )}
+                        */}
                       </div>
                     ) : (
                       <div className="h-full bg-white flex flex-col relative">
@@ -615,9 +486,3 @@ export default function BuilderPage() {
   );
 }
 
-// Helper to extract paths if necessary, assuming FileNode structure
-/* function extractPaths(nodes: FileNode[]): string[] {
-  const paths: string[] = [];
-...
-  return paths;
-} */
