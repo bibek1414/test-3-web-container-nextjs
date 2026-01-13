@@ -16,6 +16,7 @@ import {
   Check
 } from "lucide-react";
 import { siteConfig } from "@/config/site";
+import { AIStatusBoard } from "./file-explorer/AIStatusBoard";
 
 interface ChatMessage {
   role: "user" | "ai";
@@ -30,13 +31,19 @@ interface ChatInterfaceProps {
   onTaskCompleted?: (files: string[]) => void;
   terminalError?: string;
   onClearError?: () => void;
+  aiStatus?: {
+    message: string;
+    status_type: "info" | "loading" | "success" | "error";
+    timestamp: number;
+  } | null;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onTaskCompleted,
   terminalError,
-  onClearError
-}) => {
+  onClearError,
+  aiStatus
+}: ChatInterfaceProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "ai",
@@ -237,16 +244,22 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         ))}
 
         {mutation.isPending && (
-          <div className="flex flex-col gap-2 max-w-[85%] mr-auto items-start animate-pulse">
+          <div className="flex flex-col gap-2 max-w-[85%] mr-auto items-start animate-pulse mb-4">
             <div className="flex items-center gap-2 px-1">
               <Loader2 className="size-3 text-[#007acc] animate-spin" />
               <span className="text-[11px] font-semibold uppercase text-[#888] tracking-wider">Thinking...</span>
             </div>
-            <div className="p-3 rounded-xl bg-[#252526] border border-[#333] rounded-tl-none size-8 flex items-center justify-center">
-              <div className="size-1 rounded-full bg-[#007acc] animate-bounce" />
-              <div className="size-1 rounded-full bg-[#007acc] animate-bounce [animation-delay:-.3s] mx-1" />
-              <div className="size-1 rounded-full bg-[#007acc] animate-bounce [animation-delay:-.5s]" />
-            </div>
+            {aiStatus ? (
+              <div className="w-full">
+                <AIStatusBoard status={aiStatus} />
+              </div>
+            ) : (
+              <div className="p-3 rounded-xl bg-[#252526] border border-[#333] rounded-tl-none size-8 flex items-center justify-center">
+                <div className="size-1 rounded-full bg-[#007acc] animate-bounce" />
+                <div className="size-1 rounded-full bg-[#007acc] animate-bounce [animation-delay:-.3s] mx-1" />
+                <div className="size-1 rounded-full bg-[#007acc] animate-bounce [animation-delay:-.5s]" />
+              </div>
+            )}
           </div>
         )}
         <div ref={messagesEndRef} />

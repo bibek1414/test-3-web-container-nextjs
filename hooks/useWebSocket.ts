@@ -8,11 +8,13 @@ interface WebSocketMessage {
   content?: string;
   error?: string;
   message?: string;
+  status_type?: "info" | "loading" | "success" | "error";
   repo_url?: string;
   token?: string;
   tree?: { items: FileNode[] };
   old_path?: string;
   new_path?: string;
+  timestamp?: number;
 }
 
 const normalizePath = (path: string) => path.replace(/^\/+/, "");
@@ -37,6 +39,11 @@ export const useWebSocket = (workspaceId: string) => {
   const [lastRenamedFile, setLastRenamedFile] = useState<{
     oldPath: string;
     newPath: string;
+  } | null>(null);
+  const [aiStatus, setAiStatus] = useState<{
+    message: string;
+    status_type: "info" | "loading" | "success" | "error";
+    timestamp: number;
   } | null>(null);
   const activeFileRef = useRef<string | null>(null);
   const silentRequests = useRef<Set<string>>(new Set());
@@ -283,6 +290,17 @@ export const useWebSocket = (workspaceId: string) => {
             alert(`Server Error: ${msg.error || msg.message}`);
             break;
 
+          case "ai_status":
+            console.log(`🤖 AI Status: ${msg.message} (${msg.status_type})`);
+            if (msg.message && msg.status_type) {
+              setAiStatus({
+                message: msg.message,
+                status_type: msg.status_type,
+                timestamp: msg.timestamp || Date.now() / 1000,
+              });
+            }
+            break;
+
           default:
             console.log(`🔹 Unhandled action: ${msg.action}`, msg);
         }
@@ -479,5 +497,6 @@ export const useWebSocket = (workspaceId: string) => {
     isTreeLoading,
     isPreFetching: silentRequestCount > 0,
     isConnected: status === "Connected",
+    aiStatus,
   };
 };

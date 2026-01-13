@@ -7,7 +7,7 @@ import {
 
 import { getCookie } from "@/lib/auth-client";
 
-const API_BASE_URL = siteConfig.apiBuildUrl;
+const API_BASE_URL = siteConfig.apiUrl;
 
 export const templateService = {
   getTemplates: async (): Promise<TemplateAccount[]> => {

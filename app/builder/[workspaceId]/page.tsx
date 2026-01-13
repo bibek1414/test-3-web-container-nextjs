@@ -55,7 +55,8 @@ export default function BuilderPage() {
     lastRenamedFile,
     isFileLoading,
     isTreeLoading,
-    isPreFetching
+    isPreFetching,
+    aiStatus
   } = useWebSocket(currentWorkspaceId);
 
   // Local state for the UI
@@ -329,6 +330,7 @@ export default function BuilderPage() {
               }}
               terminalError={terminalError || undefined}
               onClearError={() => setTerminalError(null)}
+              aiStatus={aiStatus}
             />
           </div>
         </Allotment.Pane>
